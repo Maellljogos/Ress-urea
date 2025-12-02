@@ -107,6 +107,7 @@ const App: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const lastTapRef = useRef<number>(0); 
+  const conflictTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const savedFavs = localStorage.getItem('quantum_favorites');
@@ -362,20 +363,39 @@ const App: React.FC = () => {
     }
   }, [activeFrequencies, guardianEnabledByUser, isPlaying, hasStarted, allFrequencies, guardianActive]);
 
-  // Conflict Detection
+  // Conflict Detection (SMARTER & FASTER)
   useEffect(() => {
+    // 1. Clear any existing timeout and hide message immediately when activeFrequencies changes
+    if (conflictTimeoutRef.current) {
+        clearTimeout(conflictTimeoutRef.current);
+        conflictTimeoutRef.current = null;
+    }
+    // Only clear visual message if it was a warning (keep success messages)
+    setNetworkMsg(prev => prev.type === 'warning' ? { ...prev, show: false } : prev);
+
     if (activeFrequencies.length < 2) return;
+
+    // 2. Run check
     const activeObjs = activeFrequencies.map(id => {
         if (id === REACTOR_FREQUENCY.id) return { category: FrequencyCategory.HYPER_MATRIX }; 
         return allFrequencies.find(f => f.id === id);
     }).filter(Boolean);
+
     const hasSleepOrRelax = activeObjs.some(f => f && (f.category === FrequencyCategory.SLEEP));
     const hasHighEnergy = activeObjs.some(f => f && (f.category === FrequencyCategory.HYPER_MATRIX || f.category === FrequencyCategory.PERFORMANCE));
+    
+    // 3. Show warning if conflict exists (with shorter duration)
     if (hasSleepOrRelax && hasHighEnergy) {
-        setNetworkMsg({ show: true, msg: 'Conflito Energético: Mistura de Relaxamento e Alta Atividade.', type: 'warning' });
-        setTimeout(() => setNetworkMsg(prev => ({...prev, show: false})), 5000);
+        // Small delay to ensure the "clearing" happens first visually if needed
+        setTimeout(() => {
+            setNetworkMsg({ show: true, msg: 'Conflito Energético: Relaxamento + Alta Atividade.', type: 'warning' });
+            
+            conflictTimeoutRef.current = setTimeout(() => {
+                setNetworkMsg(prev => ({...prev, show: false}));
+            }, 3000); // Reduced to 3s for faster users
+        }, 50);
     }
-  }, [activeFrequencies]);
+  }, [activeFrequencies, allFrequencies]);
 
   const handleEnterApp = () => {
     setIsTransitioning(true);
@@ -426,6 +446,9 @@ const App: React.FC = () => {
         toggleSelection(freq.id);
         return;
     }
+    // Force clear warnings immediately on click
+    setNetworkMsg(prev => prev.type === 'warning' ? { ...prev, show: false } : prev);
+
     if (activeFrequencies.includes(freq.id)) {
       audioEngine.stopFrequency(freq.id);
       setActiveFrequencies(prev => prev.filter(id => id !== freq.id));
@@ -590,7 +613,7 @@ const App: React.FC = () => {
   // --- RENDER: LANDING PAGE & TRANSITION ---
   if (!hasStarted) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center p-4 relative overflow-hidden bg-[#020617] text-center">
+      <div className="h-screen w-full flex flex-col items-center p-4 relative overflow-hidden bg-[#020617] text-center">
         {/* BACKGROUND */}
         <div className="absolute inset-0 bg-[#020617]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.05),transparent_70%)] animate-pulse" style={{ animationDuration: '6s' }}></div>
@@ -598,51 +621,54 @@ const App: React.FC = () => {
 
         {/* TRANSITION OVERLAY */}
         {isTransitioning ? (
-             <div className="relative z-50 flex flex-col items-center animate-fadeIn w-full max-w-sm">
+             <div className="absolute inset-0 z-50 flex flex-col items-center justify-center animate-fadeIn w-full">
                  <div className="mb-8 scale-150 relative">
                      <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full animate-pulse"></div>
                      <Atom className="w-16 h-16 text-cyan-400 animate-spin" style={{ animationDuration: '0.5s' }} />
                  </div>
                  
-                 <div className="h-10 overflow-hidden flex flex-col items-center mb-6 w-full">
+                 <div className="h-10 overflow-hidden flex flex-col items-center mb-6 w-full max-w-sm">
                      <div className={`transition-all duration-500 transform ${transitionStep === 1 ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'} absolute`}>
                          <h2 className="text-lg font-orbitron text-cyan-200 tracking-[0.2em]">INICIALIZANDO SISTEMA...</h2>
                      </div>
                      <div className={`transition-all duration-500 transform ${transitionStep === 2 ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'} absolute`}>
-                         <h2 className="text-lg font-orbitron text-white tracking-[0.2em] glow-text-cyan whitespace-nowrap">CARREGANDO MÓDULOS DE FREQUÊNCIA</h2>
+                         <h2 className="text-lg font-orbitron text-white tracking-[0.2em] glow-text-cyan whitespace-nowrap">CARREGANDO MÓDULOS</h2>
                      </div>
                  </div>
                  
-                 <div className="w-full h-0.5 bg-slate-800 rounded-full overflow-hidden">
+                 <div className="w-64 h-0.5 bg-slate-800 rounded-full overflow-hidden">
                      <div className="h-full bg-cyan-400 animate-[width_2.5s_ease-out_forwards]" style={{ width: '100%' }}></div>
                  </div>
              </div>
         ) : (
-             <div className="relative z-10 flex flex-col items-center max-w-md w-full animate-fade-in-up h-full justify-center">
+             <div className="relative z-10 flex flex-col items-center w-full max-w-md h-full justify-evenly py-6 animate-fade-in-up">
+                
                 {/* Visualizer smaller on landing to fit screens */}
-                <div className="mb-4 scale-90">
+                <div className="scale-75 h-[280px] flex items-center justify-center">
                    <Visualizer isActive={false} forceAnimate={true} speedMultiplier={0.3} breathDuration="10s" />
                 </div>
 
-                <h1 className="text-4xl md:text-5xl font-orbitron font-bold mb-2 tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-cyan-100 to-slate-100 glow-text-cyan">
-                  RESSAUREA
-                </h1>
-                
-                <p className="text-cyan-200/60 text-base mb-6 font-light tracking-[0.2em] uppercase">
-                  Sintonia de Alta Frequência
-                </p>
-
-                {/* NEW LANDING TEXT */}
-                <div className="mb-8 space-y-2 opacity-80 max-w-sm mx-auto">
-                    <p className="text-sm text-slate-300 font-rajdhani leading-relaxed">
-                        Acesse o <span className="text-cyan-300 font-semibold">Campo de Potencial Infinito</span>.
+                <div className="flex flex-col items-center gap-2">
+                    <h1 className="text-4xl md:text-5xl font-orbitron font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-cyan-100 to-slate-100 glow-text-cyan">
+                    RESSAUREA
+                    </h1>
+                    
+                    <p className="text-cyan-200/70 text-base font-light tracking-[0.2em] uppercase">
+                    Sintonia de Alta Frequência
                     </p>
-                    <p className="text-xs text-slate-400 font-light tracking-wide">
+                </div>
+
+                {/* NEW LANDING TEXT - Enhanced readability */}
+                <div className="space-y-3 max-w-sm mx-auto">
+                    <p className="text-base text-slate-200 font-rajdhani leading-relaxed font-medium">
+                        Acesse o <span className="text-cyan-300 font-bold glow-text-cyan">Campo de Potencial Infinito</span>.
+                    </p>
+                    <p className="text-sm text-slate-400 font-light tracking-wide leading-relaxed">
                         Harmonização quântica, proteção e expansão da consciência em um toque.
                     </p>
                 </div>
 
-                <div className="bg-slate-900/60 border border-cyan-500/20 p-4 rounded-xl max-w-xs w-full mb-8 backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.05)]">
+                <div className="bg-slate-900/80 border border-cyan-500/20 px-6 py-3 rounded-xl max-w-xs w-full backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.05)]">
                     <div className="flex items-center justify-center gap-2 text-cyan-400 font-bold tracking-wider text-[10px] uppercase">
                         <ShieldCheck className="w-4 h-4" />
                         <span>BLINDAGEM VIBRACIONAL</span>
@@ -651,7 +677,7 @@ const App: React.FC = () => {
 
                 <button
                   onClick={handleEnterApp}
-                  className="group relative px-10 py-4 bg-transparent overflow-hidden rounded-full transition-all duration-500 hover:scale-105"
+                  className="group relative px-12 py-3 bg-transparent overflow-hidden rounded-full transition-all duration-500 hover:scale-105"
                 >
                   <div className="absolute inset-0 border border-cyan-500/30 rounded-full"></div>
                   <div className="absolute inset-0 bg-cyan-500/10 blur-xl group-hover:bg-cyan-500/20 transition-all duration-500"></div>
@@ -915,8 +941,8 @@ const App: React.FC = () => {
                   </div>
               </div>
 
-              {/* CATEGORY LIST - FIXED SPACING (gap-6) AND LOGIC */}
-              <div className="flex gap-6 overflow-x-auto pt-4 pb-2 px-8 -mx-8 category-scroll items-center w-[calc(100%+4rem)]">
+              {/* CATEGORY LIST - FIXED GAP (gap-5) */}
+              <div className="flex gap-5 overflow-x-auto pt-4 pb-2 px-8 -mx-8 category-scroll items-center w-[calc(100%+4rem)]">
                   <div className="pl-4"></div>
                   <button
                       onClick={() => handleCategoryChange('All')}
@@ -929,7 +955,7 @@ const App: React.FC = () => {
                       TODOS
                   </button>
 
-                  {/* ATIVOS (PLAYING) CATEGORY - REFINED LOGIC & ANIMATION */}
+                  {/* ATIVOS (PLAYING) CATEGORY */}
                   <button
                       onClick={() => handleCategoryChange('ATIVOS')}
                       className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center gap-2 min-h-[36px] min-w-[100px] hover:scale-105 ${
