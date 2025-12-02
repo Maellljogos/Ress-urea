@@ -1,3 +1,4 @@
+
 import { ActiveOscillator } from '../types';
 
 // A tiny silent MP3 base64 string.
@@ -103,18 +104,24 @@ class AudioEngine {
   }
 
   public enableScalarMode(enabled: boolean) {
+    if (this.isScalarMode === enabled) return;
     this.isScalarMode = enabled;
+    
     // We need to restart active oscillators to apply the new architecture
-    // In a real app we might cross-fade, but for simplicity we can just let existing ones play
-    // or we could force restart them.
-    // Let's force restart current oscillators to apply the effect immediately
+    // Force restart current oscillators to apply the effect immediately
     if (this.activeOscillators.size > 0) {
         const currentActive = Array.from(this.activeOscillators.entries());
         currentActive.forEach(([id, active]) => {
             const hz = active.oscillator.frequency.value;
-            this.stopFrequency(id);
-            // Small timeout to allow stop to process then restart
-            setTimeout(() => this.playFrequency(id, hz), 50);
+            // Immediate stop without fade to prevent overlapping phase issues
+            if (active.gain) {
+                active.gain.disconnect();
+                active.oscillator.stop();
+            }
+            this.activeOscillators.delete(id);
+            
+            // Restart with new mode
+            this.playFrequency(id, hz);
         });
     }
   }
@@ -130,6 +137,7 @@ class AudioEngine {
       this.notifyStateChange(true);
     }
 
+    // If already playing, do nothing or update hz? Let's just return to avoid duplicates.
     if (this.activeOscillators.has(id)) return; 
 
     const ctx = this.audioContext!;
@@ -204,14 +212,22 @@ class AudioEngine {
   public stopFrequency(id: string) {
     const active = this.activeOscillators.get(id);
     if (active && this.audioContext) {
-      active.gain.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 1);
+      // Fade out
+      active.gain.gain.cancelScheduledValues(this.audioContext.currentTime);
+      active.gain.gain.setValueAtTime(active.gain.gain.value, this.audioContext.currentTime);
+      active.gain.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.5);
+      
+      const oscToStop = active.oscillator;
+      const gainToDisconnect = active.gain;
+      const scalarGainToDisconnect = active.scalarGain;
+
       setTimeout(() => {
-        active.oscillator.stop();
-        active.oscillator.disconnect();
-        active.gain.disconnect();
-        // Cleanup scalar nodes if exist
-        if (active.scalarGain) active.scalarGain.disconnect();
-      }, 1000);
+        oscToStop.stop();
+        oscToStop.disconnect();
+        gainToDisconnect.disconnect();
+        if (scalarGainToDisconnect) scalarGainToDisconnect.disconnect();
+      }, 550);
+      
       this.activeOscillators.delete(id);
     }
   }
@@ -282,9 +298,6 @@ class AudioEngine {
       } catch (err) {
         // User cancelled or API not supported, fallback to auto
         console.log("Save Picker cancelled or failed, falling back to auto.");
-        // Continue to fallback below? 
-        // If user cancelled, they probably don't want to download anymore.
-        // But if error, maybe fallback. Let's return to avoid duplicate download if cancel.
         if ((err as Error).name === 'AbortError') return;
       }
     }

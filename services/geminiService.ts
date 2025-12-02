@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Frequency, FrequencyCategory } from "../types";
 
@@ -162,6 +163,7 @@ export const generateFrequenciesFromIntent = async (intent: string, category: Fr
   try {
     // LAZY INITIALIZATION - Prevents crash on load
     const genAI = new GoogleGenAI({ apiKey: apiKey });
+    // Use gemini-2.5-flash for speed and thinking capability
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     let promptContext = "";
@@ -171,12 +173,14 @@ export const generateFrequenciesFromIntent = async (intent: string, category: Fr
         The user wants to "Download" specific knowledge: "${intent}".
         Search your database for proven Gamma frequencies (40Hz-100Hz) for this skill.
         Category: "Hyper-Matrix".
+        Explain why this Hz helps with this specific skill in the description.
       `;
     } else {
       promptContext = `
         User intent: "${intent}".
-        Search your database for exact Rife or Solfeggio frequencies matching this intent.
-        DO NOT invent random numbers. Use historically proven Hz values.
+        Search your database for exact Rife, Solfeggio, or Brainwave frequencies matching this intent.
+        DO NOT invent random numbers. Use historically proven Hz values (e.g., Royal Rife, Solfeggio, Monroe Institute).
+        If multiple frequencies exist, pick the 3 most potent ones.
       `;
     }
 
@@ -189,7 +193,7 @@ export const generateFrequenciesFromIntent = async (intent: string, category: Fr
       
       ${promptContext}
       
-      Return a pure JSON array (triad). Each object:
+      Return a pure JSON array (triad of 3 frequencies). Each object:
       - hz: number
       - name: string
       - description: string
@@ -210,7 +214,9 @@ export const generateFrequenciesFromIntent = async (intent: string, category: Fr
             },
             required: ["hz", "name", "description"]
           }
-        }
+        },
+        // Using a modest thinking budget to ensure the model selects accurate frequencies
+        thinkingConfig: { thinkingBudget: 1024 }
       }
     });
 

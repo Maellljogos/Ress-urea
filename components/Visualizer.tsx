@@ -4,9 +4,10 @@ interface VisualizerProps {
   isActive: boolean;
   speedMultiplier?: number; // 1 = Normal, 0.5 = Slow, 2 = Fast
   breathDuration?: string; // e.g. "4s", "8s"
+  forceAnimate?: boolean; // Forces animation even if inactive (for welcome screen)
 }
 
-export const Visualizer: React.FC<VisualizerProps> = ({ isActive, speedMultiplier = 1, breathDuration = '4s' }) => {
+export const Visualizer: React.FC<VisualizerProps> = ({ isActive, speedMultiplier = 1, breathDuration = '4s', forceAnimate = false }) => {
   // References for the rotating elements
   const ringRef = useRef<HTMLDivElement>(null);
   const geoRef = useRef<HTMLDivElement>(null);
@@ -43,11 +44,10 @@ export const Visualizer: React.FC<VisualizerProps> = ({ isActive, speedMultiplie
 
     // 2. Calculate Target Playback Rate
     // Idle = Very slow (0.05x). Active = speedMultiplier (e.g. 1x, 3x).
-    const targetRate = isActive ? speedMultiplier : 0.05;
+    const shouldAnimate = isActive || forceAnimate;
+    const targetRate = shouldAnimate ? speedMultiplier : 0.05;
 
     // 3. Smoothly Update Speed (No Jumps)
-    // We update the playbackRate property. This keeps the current angle/rotation 
-    // and just changes how fast it moves from that point.
     const updateSpeed = (anim: Animation | null) => {
         if (anim) {
             // Check if supported
@@ -64,17 +64,19 @@ export const Visualizer: React.FC<VisualizerProps> = ({ isActive, speedMultiplie
     updateSpeed(animGeo.current);
     updateSpeed(animOrbit.current);
 
-  }, [isActive, speedMultiplier]);
+  }, [isActive, speedMultiplier, forceAnimate]);
 
   // CSS transition for opacity/scale/color only (Not rotation)
-  const transitionClass = 'transition-all duration-[2000ms] ease-out';
+  // Added 'gpu-accelerated' class for performance
+  const transitionClass = 'transition-all duration-[2000ms] ease-out gpu-accelerated';
+  const displayActive = isActive || forceAnimate;
 
   return (
-    <div className="relative flex justify-center items-center w-full h-[350px]">
+    <div className="relative flex justify-center items-center w-full h-[350px] gpu-accelerated">
       
       {/* 1. LOCALIZED BACKGROUND AURA - BREATHING */}
       <div 
-        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] md:w-[450px] md:h-[450px] pointer-events-none transition-all duration-[3000ms] ease-out ${isActive ? 'opacity-100 scale-100' : 'opacity-30 scale-90'}`}
+        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] md:w-[450px] md:h-[450px] pointer-events-none transition-all duration-[3000ms] ease-out gpu-accelerated ${displayActive ? 'opacity-100 scale-100' : 'opacity-30 scale-90'}`}
       >
          {/* Deep Glow - Breathes with Hz */}
          <div 
@@ -83,44 +85,44 @@ export const Visualizer: React.FC<VisualizerProps> = ({ isActive, speedMultiplie
          />
          {/* Inner Brightness */}
          <div 
-            className={`absolute inset-[15%] bg-blue-500/10 rounded-full blur-[40px] transition-opacity duration-[3000ms] ${isActive ? 'opacity-100' : 'opacity-0'}`}
+            className={`absolute inset-[15%] bg-blue-500/10 rounded-full blur-[40px] transition-opacity duration-[3000ms] ${displayActive ? 'opacity-100' : 'opacity-0'}`}
          />
       </div>
 
       {/* 2. THE MANDALA CONTAINER */}
-      <div className={`relative z-10 flex justify-center items-center w-[200px] h-[200px] ${transitionClass} ${isActive ? 'scale-105' : 'scale-100'}`}>
+      <div className={`relative z-10 flex justify-center items-center w-[200px] h-[200px] ${transitionClass} ${displayActive ? 'scale-105' : 'scale-100'}`}>
           
           {/* Core Light - Breathes with Hz */}
           <div 
-            className={`absolute w-32 h-32 bg-cyan-500/20 rounded-full blur-xl ${transitionClass} ${isActive ? 'opacity-100 animate-pulse' : 'opacity-60'}`}
+            className={`absolute w-32 h-32 bg-cyan-500/20 rounded-full blur-xl ${transitionClass} ${displayActive ? 'opacity-100 animate-pulse' : 'opacity-60'}`}
             style={{ animationDuration: breathDuration }}
           ></div>
           
           {/* Inner Ring (ROTATING) */}
           <div 
             ref={ringRef}
-            className={`absolute w-40 h-40 border rounded-full ${transitionClass} ${isActive ? 'border-cyan-400/50 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-slate-700/50'}`} 
+            className={`absolute w-40 h-40 border rounded-full ${transitionClass} ${displayActive ? 'border-cyan-400/50 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-slate-700/50'}`} 
           ></div>
           
           {/* Geometry (ROTATING REVERSE) */}
           <div 
               ref={geoRef}
-              className={`absolute w-32 h-32 border ${transitionClass} ${isActive ? 'border-slate-100/40' : 'border-slate-600/30'}`}
+              className={`absolute w-32 h-32 border ${transitionClass} ${displayActive ? 'border-slate-100/40' : 'border-slate-600/30'}`}
           ></div>
           
           {/* Outer Ring pulsing (Non-rotating) */}
           <div 
-              className={`absolute border rounded-full w-56 h-56 ${transitionClass} ${isActive ? 'border-cyan-500/20' : 'border-transparent'}`}
-              style={{ animation: isActive ? `breathe ${breathDuration} ease-in-out infinite` : 'none' }}
+              className={`absolute border rounded-full w-56 h-56 ${transitionClass} ${displayActive ? 'border-cyan-500/20' : 'border-transparent'}`}
+              style={{ animation: displayActive ? `breathe ${breathDuration} ease-in-out infinite` : 'none' }}
           ></div>
 
           {/* Center Source */}
-          <div className={`absolute w-3 h-3 rounded-full ${transitionClass} ${isActive ? 'bg-white shadow-[0_0_20px_cyan]' : 'bg-slate-500'}`}></div>
+          <div className={`absolute w-3 h-3 rounded-full ${transitionClass} ${displayActive ? 'bg-white shadow-[0_0_20px_cyan]' : 'bg-slate-500'}`}></div>
           
           {/* Orbiting Particles (ROTATING) */}
           <div 
               ref={orbitRef}
-              className={`absolute w-full h-full ${transitionClass} ${isActive ? 'opacity-100' : 'opacity-60'}`}
+              className={`absolute w-full h-full ${transitionClass} ${displayActive ? 'opacity-100' : 'opacity-60'}`}
           >
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-cyan-200 shadow-[0_0_5px_cyan]"></div>
           </div>

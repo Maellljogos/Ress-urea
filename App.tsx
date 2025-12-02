@@ -1,10 +1,8 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Volume2, 
   Volume1,
   Square, 
-  Fingerprint, 
   X, 
   Activity, 
   CloudDownload, 
@@ -16,7 +14,6 @@ import {
   Infinity, 
   HelpCircle,
   Power,
-  RefreshCcw,
   Loader2,
   CheckCircle2,
   Search,
@@ -27,16 +24,17 @@ import {
   Settings,
   FolderOpen,
   AlertTriangle,
-  WifiOff,
   Globe,
   Trash2,
-  Database,
-  Edit3,
+  ListChecks,
+  WifiOff,
   CheckSquare,
   Cloud,
-  Cpu,
-  Layers,
-  MousePointer2
+  Check,
+  MousePointerClick,
+  Disc,
+  Shield,
+  Zap
 } from 'lucide-react';
 import { PRESET_FREQUENCIES, CATEGORIES, GUARDIAN_FREQUENCY, REACTOR_FREQUENCY, REACTOR_MODES, UPLIFT_FREQUENCY } from './constants';
 import { Frequency, FrequencyCategory } from './types';
@@ -62,13 +60,15 @@ const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [isAudible, setIsAudible] = useState(false);
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
   
   // Selection / Delete Mode
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [singleDeleteId, setSingleDeleteId] = useState<string | null>(null); // For individual delete
+  const [singleDeleteId, setSingleDeleteId] = useState<string | null>(null); 
+  
+  // Deleted Presets (Blacklist)
+  const [deletedFreqIds, setDeletedFreqIds] = useState<string[]>([]);
 
   // Settings & Menu
   const [showMenu, setShowMenu] = useState(false);
@@ -76,7 +76,8 @@ const App: React.FC = () => {
 
   // Reactor Mode State
   const [selectedReactorMode, setSelectedReactorMode] = useState(REACTOR_MODES[0]);
-  const [showReactorUI, setShowReactorUI] = useState(false); // Controls visibility of UI in Reactor
+  const [showReactorUI, setShowReactorUI] = useState(false); 
+  const [showReactorHint, setShowReactorHint] = useState(false); // New state for internal hint
   
   // Feedback state
   const [lastGeneratedId, setLastGeneratedId] = useState<string | null>(null);
@@ -87,17 +88,6 @@ const App: React.FC = () => {
   // Guardian Toggle State
   const [guardianEnabledByUser, setGuardianEnabledByUser] = useState(true);
 
-  // Personal Calibration State
-  const [showCalibration, setShowCalibration] = useState(false);
-  const [personalFrequency, setPersonalFrequency] = useState<Frequency | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [calibrationStep, setCalibrationStep] = useState<'idle' | 'scanning' | 'complete'>('idle');
-  const [scanProgress, setScanProgress] = useState(0);
-  const scanInterval = useRef<any>(null);
-  
-  const [scanReadings, setScanReadings] = useState<number[]>([]);
-  const MAX_SCANS = 3;
-  
   // Modals
   const [showSigns, setShowSigns] = useState(false);
   const [showScalarHelp, setShowScalarHelp] = useState(false);
@@ -109,27 +99,17 @@ const App: React.FC = () => {
   const wakeLockRef = useRef<any>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const lastTapRef = useRef<number>(0); // For double tap detection
+  const lastTapRef = useRef<number>(0); 
 
   useEffect(() => {
-    // Detect touch device for UX adjustments
-    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
-
     const savedFavs = localStorage.getItem('quantum_favorites');
-    if (savedFavs) {
-      setFavorites(JSON.parse(savedFavs));
-    }
+    if (savedFavs) setFavorites(JSON.parse(savedFavs));
     
-    const savedPersonal = localStorage.getItem('quantum_personal_freq');
-    if (savedPersonal) {
-      setPersonalFrequency(JSON.parse(savedPersonal));
-      setCalibrationStep('idle'); 
-    }
-
     const savedGenerated = localStorage.getItem('quantum_generated_freqs');
-    if (savedGenerated) {
-        setGeneratedFrequencies(JSON.parse(savedGenerated));
-    }
+    if (savedGenerated) setGeneratedFrequencies(JSON.parse(savedGenerated));
+
+    const savedDeleted = localStorage.getItem('quantum_deleted_ids');
+    if (savedDeleted) setDeletedFreqIds(JSON.parse(savedDeleted));
 
     const savedDlMode = localStorage.getItem('quantum_download_mode');
     if (savedDlMode === 'ask' || savedDlMode === 'auto') {
@@ -140,7 +120,6 @@ const App: React.FC = () => {
       setIsPlaying(enginePlaying);
     });
 
-    // Network Listeners for Seamless Transition
     const handleOnline = () => {
         setIsOffline(false);
         setNetworkMsg({ show: true, msg: 'Reconectado à Rede Quântica.', type: 'success' });
@@ -162,25 +141,22 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Determine if Reactor is Active for UI Effects
   const isReactorActive = activeFrequencies.includes(REACTOR_FREQUENCY.id);
 
-  // Wake Lock Logic
+  // Wake Lock Logic & UI Hint
   useEffect(() => {
     if (isReactorActive) {
-        if (videoRef.current) {
-            videoRef.current.play().catch(e => {
-                 console.log("WakeLock deferred");
-            });
-        }
+        if (videoRef.current) videoRef.current.play().catch(() => {});
         if ('wakeLock' in navigator) {
             (navigator as any).wakeLock.request('screen')
                 .then((lock: any) => { wakeLockRef.current = lock; })
                 .catch((e: any) => console.log('WakeLock API failed', e));
         }
-        // Hint for double tap
-        setNetworkMsg({ show: true, msg: 'Toque duas vezes para exibir controles', type: 'success' });
-        setTimeout(() => setNetworkMsg(prev => ({...prev, show: false})), 3000);
+        
+        // Show INTERNAL Reactor Hint
+        setShowReactorHint(true);
+        const timer = setTimeout(() => setShowReactorHint(false), 4000);
+        return () => clearTimeout(timer);
 
     } else {
         if (videoRef.current) videoRef.current.pause();
@@ -188,7 +164,8 @@ const App: React.FC = () => {
             wakeLockRef.current.release().catch(() => {});
             wakeLockRef.current = null;
         }
-        setShowReactorUI(false); // Reset UI state
+        setShowReactorUI(false); 
+        setShowReactorHint(false);
     }
   }, [isReactorActive]);
 
@@ -231,12 +208,26 @@ const App: React.FC = () => {
     setIsDownloading(null);
   };
 
+  const handleDownloadSelected = async () => {
+    if (selectedItems.size === 0) return;
+    
+    // Iterate and download
+    for (const id of selectedItems) {
+        const freq = allFrequencies.find(f => f.id === id);
+        if (freq) {
+            // Optional: minimal delay between downloads to prevent browser blocking
+            await audioEngine.exportFrequencyToFile(freq.hz, freq.name, downloadMode);
+        }
+    }
+    // Close selection mode to declutter
+    setIsSelectionMode(false);
+  };
+
   const changeDownloadMode = (mode: 'auto' | 'ask') => {
       setDownloadMode(mode);
       localStorage.setItem('quantum_download_mode', mode);
   };
 
-  // --- DELETE / MANAGE LOGIC ---
   const toggleSelection = (id: string) => {
       const newSet = new Set(selectedItems);
       if (newSet.has(id)) newSet.delete(id);
@@ -244,57 +235,110 @@ const App: React.FC = () => {
       setSelectedItems(newSet);
   };
 
-  const handleDeleteSelected = () => {
-      // Logic for batch delete
-      if (selectedItems.size > 0) {
-        const newGenerated = generatedFrequencies.filter(f => !selectedItems.has(f.id));
-        setGeneratedFrequencies(newGenerated);
-        localStorage.setItem('quantum_generated_freqs', JSON.stringify(newGenerated));
-        
-        // Stop deleted ones if playing
-        selectedItems.forEach(id => {
-            if (activeFrequencies.includes(id)) {
-                audioEngine.stopFrequency(id);
-            }
-        });
-        setActiveFrequencies(prev => prev.filter(id => !selectedItems.has(id)));
-        setSelectedItems(new Set());
-        setIsSelectionMode(false);
-      } 
-      // Logic for single delete
-      else if (singleDeleteId) {
-          const newGenerated = generatedFrequencies.filter(f => f.id !== singleDeleteId);
-          setGeneratedFrequencies(newGenerated);
-          localStorage.setItem('quantum_generated_freqs', JSON.stringify(newGenerated));
-          if (activeFrequencies.includes(singleDeleteId)) {
-              audioEngine.stopFrequency(singleDeleteId);
-              setActiveFrequencies(prev => prev.filter(id => id !== singleDeleteId));
-          }
-          setSingleDeleteId(null);
-      }
-
-      setShowDeleteConfirm(false);
+  const handleSelectAll = () => {
+    const visibleIds = filteredFrequencies.map(f => f.id);
+    if (selectedItems.size === visibleIds.length) {
+      setSelectedItems(new Set()); // Deselect all if all are selected
+    } else {
+      setSelectedItems(new Set(visibleIds)); // Select all visible
+    }
   };
 
-  // --- FREQUENCY LIST FILTERING ---
-  const allFrequencies = [
-    ...(personalFrequency ? [personalFrequency] : []),
+  const handlePlaySelected = () => {
+    selectedItems.forEach(id => {
+       const freq = allFrequencies.find(f => f.id === id);
+       if (freq && !activeFrequencies.includes(id)) {
+          audioEngine.playFrequency(freq.id, freq.hz);
+          setActiveFrequencies(prev => [...prev, freq.id]);
+       }
+    });
+    // LOGIC: User tapped play, so we assume they are done selecting.
+    setIsSelectionMode(false);
+  };
+
+  const performDelete = (idsToDelete: string[]) => {
+      // 1. Separate Generated vs Presets
+      const generatedIds = generatedFrequencies.map(g => g.id);
+      
+      const toRemoveFromGenerated = idsToDelete.filter(id => generatedIds.includes(id));
+      const toAddToBlacklist = idsToDelete.filter(id => !generatedIds.includes(id)); 
+
+      // 2. Remove Generated
+      if (toRemoveFromGenerated.length > 0) {
+          const newGenerated = generatedFrequencies.filter(f => !toRemoveFromGenerated.includes(f.id));
+          setGeneratedFrequencies(newGenerated);
+          localStorage.setItem('quantum_generated_freqs', JSON.stringify(newGenerated));
+      }
+
+      // 3. Blacklist Presets
+      if (toAddToBlacklist.length > 0) {
+          const newBlacklist = [...deletedFreqIds, ...toAddToBlacklist];
+          setDeletedFreqIds(newBlacklist);
+          localStorage.setItem('quantum_deleted_ids', JSON.stringify(newBlacklist));
+      }
+
+      // 4. Stop Audio if Playing
+      idsToDelete.forEach(id => {
+          if (activeFrequencies.includes(id)) {
+              audioEngine.stopFrequency(id);
+          }
+      });
+      setActiveFrequencies(prev => prev.filter(id => !idsToDelete.includes(id)));
+
+      // 5. Cleanup UI
+      const newSelection = new Set(selectedItems);
+      idsToDelete.forEach(id => newSelection.delete(id));
+      setSelectedItems(newSelection);
+      
+      setSingleDeleteId(null);
+      setShowDeleteConfirm(false);
+      
+      // Close selection mode if empty
+      if (newSelection.size === 0) setIsSelectionMode(false);
+  };
+
+  const handleDeleteSelected = () => {
+      if (singleDeleteId) {
+          performDelete([singleDeleteId]);
+      } else if (selectedItems.size > 0) {
+          performDelete(Array.from(selectedItems));
+      }
+  };
+
+  // --- FREQUENCY LIST FILTERING (MEMOIZED FOR PERFORMANCE) ---
+  const allFrequencies = useMemo(() => [
     ...generatedFrequencies, 
     ...PRESET_FREQUENCIES
-  ];
+  ], [generatedFrequencies]);
 
-  const filteredFrequencies = (selectedCategory === 'All' 
-    ? allFrequencies 
-    : selectedCategory === 'FAVORITOS'
-      ? allFrequencies.filter(f => favorites.includes(f.id))
-      : allFrequencies.filter(f => f.category === selectedCategory))
-      .filter(f => {
+  const filteredFrequencies = useMemo(() => {
+      // 1. Filter out deleted items
+      let visibleFrequencies = allFrequencies.filter(f => !deletedFreqIds.includes(f.id));
+
+      // 2. Filter by Category & Active Status
+      let result = [];
+      if (selectedCategory === 'All') {
+          result = visibleFrequencies;
+      } else if (selectedCategory === 'FAVORITOS') {
+          result = visibleFrequencies.filter(f => favorites.includes(f.id));
+      } else if (selectedCategory === 'ATIVOS') {
+          // SPECIAL LOGIC: Include normal active frequencies
+          result = visibleFrequencies.filter(f => activeFrequencies.includes(f.id));
+          // DO NOT inject Guardian here anymore. It's rendered separately.
+      } else {
+          result = visibleFrequencies.filter(f => f.category === selectedCategory);
+      }
+
+      // 3. Filter by Search Term
+      return result.filter(f => {
           if (!filterTerm) return true;
           const search = filterTerm.toLowerCase();
           return f.name.toLowerCase().includes(search) || f.description.toLowerCase().includes(search);
       });
+  }, [allFrequencies, deletedFreqIds, selectedCategory, favorites, activeFrequencies, filterTerm]); // removed guardianActive from deps as it's separate
 
-  // Guardian Logic + Subliminal Uplift Mix
+
+  // Guardian Logic
   useEffect(() => {
     if (!hasStarted) return;
 
@@ -329,24 +373,17 @@ const App: React.FC = () => {
     }
   }, [activeFrequencies, guardianEnabledByUser, isPlaying, hasStarted, allFrequencies, guardianActive]);
 
-  // CONFLICT DETECTION
+  // Conflict Detection
   useEffect(() => {
     if (activeFrequencies.length < 2) return;
-
     const activeObjs = activeFrequencies.map(id => {
         if (id === REACTOR_FREQUENCY.id) return { category: FrequencyCategory.HYPER_MATRIX }; 
         return allFrequencies.find(f => f.id === id);
     }).filter(Boolean);
-
     const hasSleepOrRelax = activeObjs.some(f => f && (f.category === FrequencyCategory.SLEEP));
     const hasHighEnergy = activeObjs.some(f => f && (f.category === FrequencyCategory.HYPER_MATRIX || f.category === FrequencyCategory.PERFORMANCE));
-
     if (hasSleepOrRelax && hasHighEnergy) {
-        setNetworkMsg({ 
-            show: true, 
-            msg: 'Conflito Energético: Mistura de Relaxamento e Alta Atividade detectada.', 
-            type: 'warning' 
-        });
+        setNetworkMsg({ show: true, msg: 'Conflito Energético: Mistura de Relaxamento e Alta Atividade.', type: 'warning' });
         setTimeout(() => setNetworkMsg(prev => ({...prev, show: false})), 5000);
     }
   }, [activeFrequencies]);
@@ -363,11 +400,21 @@ const App: React.FC = () => {
   };
 
   const togglePlayPauseGlobal = () => {
-    if (isPlaying) {
-      audioEngine.pauseGlobal();
-    } else {
-      audioEngine.resumeGlobal();
-    }
+    if (isPlaying) audioEngine.pauseGlobal();
+    else audioEngine.resumeGlobal();
+  };
+
+  const handleStopAll = () => {
+    // 1. Stop Audio
+    audioEngine.stopAll();
+    // 2. Clear Active list
+    setActiveFrequencies([]);
+    // 3. Clear Selection visuals
+    setSelectedItems(new Set());
+    setIsSelectionMode(false);
+    // 4. KILL GUARDIAN
+    setGuardianEnabledByUser(false);
+    setGuardianActive(false);
   };
 
   const toggleAudibleMode = () => {
@@ -377,15 +424,10 @@ const App: React.FC = () => {
   };
 
   const toggleFrequency = (freq: Frequency) => {
-    // Only allow selection if the frequency is a generated one
     if (isSelectionMode) {
-        const isGenerated = freq.id.startsWith('custom_') || freq.id.startsWith('offline_');
-        if (isGenerated) {
-            toggleSelection(freq.id);
-        }
+        toggleSelection(freq.id);
         return;
     }
-
     if (activeFrequencies.includes(freq.id)) {
       audioEngine.stopFrequency(freq.id);
       setActiveFrequencies(prev => prev.filter(id => id !== freq.id));
@@ -401,12 +443,12 @@ const App: React.FC = () => {
     audioEngine.enableScalarMode(newState);
   };
 
-  // Handle Double Tap for Reactor UI
-  const handleDoubleTap = () => {
+  const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
+      // Prevent default to stop zooming/scrolling issues during rapid taps
+      // e.preventDefault(); 
       const now = Date.now();
-      const DOUBLE_TAP_DELAY = 300;
+      const DOUBLE_TAP_DELAY = 400; // Increased slighty for better detection
       if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-          // It's a double tap
           setShowReactorUI(prev => !prev);
       }
       lastTapRef.current = now;
@@ -419,7 +461,6 @@ const App: React.FC = () => {
     const cat = isMatrix ? FrequencyCategory.HYPER_MATRIX : FrequencyCategory.CUSTOM;
     const newFrequencies = await generateFrequenciesFromIntent(searchTerm, cat);
     
-    // Merge and save
     const updatedGenerated = [...newFrequencies, ...generatedFrequencies];
     setGeneratedFrequencies(updatedGenerated);
     localStorage.setItem('quantum_generated_freqs', JSON.stringify(updatedGenerated));
@@ -430,83 +471,6 @@ const App: React.FC = () => {
         if (!isMatrix) setSelectedCategory('All'); 
         else setSelectedCategory(FrequencyCategory.HYPER_MATRIX);
         setLastGeneratedId(newFrequencies[0].id);
-    }
-  };
-
-  // Biometrics
-  const startBiometricScan = () => {
-    if (isScanning) return;
-    setIsScanning(true);
-    setCalibrationStep('scanning');
-    setScanProgress(0);
-
-    let progress = 0;
-    scanInterval.current = setInterval(() => {
-      progress += 2;
-      setScanProgress(progress);
-      if (progress >= 100) {
-        clearInterval(scanInterval.current);
-        finishSingleScan();
-      }
-    }, 40);
-  };
-
-  const finishSingleScan = () => {
-    setIsScanning(false);
-    const reading = Math.floor(Math.random() * 580) + 20;
-    const newReadings = [...scanReadings, reading];
-    setScanReadings(newReadings);
-    if (newReadings.length < MAX_SCANS) {
-       setScanProgress(0);
-       setCalibrationStep('scanning'); 
-    } else {
-       finalizeCalibration(newReadings);
-    }
-  };
-
-  const finalizeCalibration = (readings: number[]) => {
-      const avg = readings.reduce((a, b) => a + b, 0) / readings.length;
-      const finalHz = Number(avg.toFixed(2));
-      const identityFreq: Frequency = {
-        id: 'personal_identity',
-        hz: finalHz,
-        name: 'Minha Frequência Base',
-        description: 'Sintonia média triangulada do seu campo bio-elétrico atual.',
-        category: FrequencyCategory.PERSONAL,
-      };
-      setPersonalFrequency(identityFreq);
-      localStorage.setItem('quantum_personal_freq', JSON.stringify(identityFreq));
-      setCalibrationStep('idle'); 
-  };
-
-  const resetCalibration = () => {
-      setScanReadings([]);
-      setScanProgress(0);
-      setCalibrationStep('idle');
-      setIsScanning(false);
-      setPersonalFrequency(null); 
-      localStorage.removeItem('quantum_personal_freq'); 
-  };
-
-  const getBiometricAdvice = (hz: number) => {
-    if (hz < 150) {
-        return {
-            title: "Campo Denso Detectado",
-            text: "Sua vibração indica acúmulo de tensão ou bloqueios. Recomendamos iniciar com LIMPEZA (Solfeggio 396Hz/741Hz) para purificação.",
-            color: "text-rose-400"
-        };
-    } else if (hz < 450) {
-        return {
-            title: "Campo Estável",
-            text: "Sua energia está equilibrada e receptiva. É o momento ideal para fortalecer o CORPO e alinhar o MENTAL (Alpha/Theta).",
-            color: "text-emerald-400"
-        };
-    } else {
-        return {
-            title: "Alta Vibração Detectada",
-            text: "Seu campo está sutil e expandido. Você está pronto para cocriação acelerada (MATRIX) e frequências de ABUNDÂNCIA.",
-            color: "text-cyan-400"
-        };
     }
   };
 
@@ -526,13 +490,11 @@ const App: React.FC = () => {
           count++;
       }
       if (count === 0) return { avg: 0, breath: '6s' };
-      
       const avg = total / count;
       let breath = '6s';
-      if (avgHz < 10) breath = '10s'; // Slow breath for sleep/calm
-      else if (avgHz > 35) breath = '2s'; // Fast breath for high energy
-      else breath = '5s'; // Normal
-
+      if (avg < 10) breath = '10s'; 
+      else if (avg > 35) breath = '2s'; 
+      else breath = '5s'; 
       return { avg, breath };
   };
 
@@ -549,13 +511,14 @@ const App: React.FC = () => {
     switch (category) {
       case FrequencyCategory.SCALAR:
         return {
-          bg: 'from-slate-200 to-white', 
-          text: 'text-slate-800',
-          tabText: 'text-slate-900', 
-          border: 'border-slate-300',
-          icon: 'text-slate-600',
-          gradient: 'from-slate-100 to-slate-300',
-          shadow: 'shadow-[0_0_15px_rgba(203,213,225,0.4)]'
+          // CYAN/BLUE THEME (QUANTUM ZERO POINT) - REVERTED BY REQUEST
+          bg: 'from-cyan-950/40 to-cyan-900/10',
+          text: 'text-cyan-100',
+          tabText: 'text-white',
+          border: 'border-cyan-500/30',
+          icon: 'text-cyan-400',
+          gradient: 'from-cyan-600 to-blue-500',
+          shadow: 'shadow-[0_0_15px_rgba(6,182,212,0.15)]'
         };
       case FrequencyCategory.SLEEP:
         return {
@@ -582,7 +545,7 @@ const App: React.FC = () => {
         return {
           bg: 'from-teal-950/40 to-teal-900/10', 
           text: 'text-teal-100',
-          tabText: 'text-white',
+          tabText: 'text-teal-100',
           border: 'border-teal-500/30',
           icon: 'text-teal-400',
           gradient: 'from-teal-500 to-cyan-400',
@@ -636,28 +599,25 @@ const App: React.FC = () => {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.05),transparent_70%)] animate-pulse" style={{ animationDuration: '6s' }}></div>
         </div>
 
-        <div className="relative z-10 flex flex-col items-center text-center max-w-md w-full -mt-16 transition-opacity duration-1000 ease-in-out">
-          <div className="mb-12 scale-125">
-             <Visualizer isActive={false} />
+        <div className="relative z-10 flex flex-col items-center text-center max-w-md w-full transition-opacity duration-1000 ease-in-out">
+          <div className="mb-6 scale-125">
+             {/* RELAXING ANIMATION: SLOWER SPEED, LONGER BREATH */}
+             <Visualizer isActive={false} forceAnimate={true} speedMultiplier={0.3} breathDuration="10s" />
           </div>
 
           <h1 className="text-5xl md:text-6xl font-orbitron font-bold mb-4 tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-cyan-100 to-slate-100 glow-text-cyan">
-            RESSÁUREA
+            RESSAUREA
           </h1>
           
-          <p className="text-cyan-200/60 text-lg mb-8 font-light tracking-[0.2em] uppercase">
+          <p className="text-cyan-200/60 text-lg mb-6 font-light tracking-[0.2em] uppercase">
             Sintonia de Alta Frequência
           </p>
 
-          <div className="bg-slate-900/60 border border-cyan-500/20 p-6 rounded-2xl max-w-sm w-full mb-10 backdrop-blur-md shadow-[0_0_50px_rgba(6,182,212,0.05)] transform hover:scale-105 transition-all duration-500">
+          <div className="bg-slate-900/60 border border-cyan-500/20 p-6 rounded-2xl max-w-sm w-full mb-8 backdrop-blur-md shadow-[0_0_50px_rgba(6,182,212,0.05)] transition-all duration-500">
               <div className="flex items-center justify-center gap-2 text-cyan-400 mb-4 font-bold tracking-wider text-xs uppercase">
                   <ShieldCheck className="w-5 h-5" />
                   <span>BLINDAGEM VIBRACIONAL</span>
               </div>
-              <p className="text-slate-300 text-sm leading-relaxed antialiased tracking-wide">
-                  Você está entrando em um espaço de <strong>proteção energética avançada</strong> e equilíbrio constante. <br/>
-                  Ao ativar a ressonância, uma cúpula de harmonização envolverá seu campo, garantindo paz e segurança total.
-              </p>
           </div>
 
           <button
@@ -675,8 +635,13 @@ const App: React.FC = () => {
     );
   }
 
+  // Count active freqs for button highlight logic
+  const activeCount = activeFrequencies.filter(id => id !== REACTOR_FREQUENCY.id && id !== GUARDIAN_FREQUENCY.id && id !== UPLIFT_FREQUENCY.id).length;
+  // Determine if Active button should be highlighted (selected or not, but showing activity)
+  const isAtivosHighlighted = activeCount > 0;
+
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200 selection:bg-cyan-500/30 relative overflow-hidden">
+    <div className="min-h-screen bg-[#020617] text-slate-200 selection:bg-cyan-500/30 relative overflow-hidden font-rajdhani antialiased">
       
       <video 
          ref={videoRef}
@@ -694,27 +659,37 @@ const App: React.FC = () => {
 
       {isReactorActive && (
           <div 
-            className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center overflow-hidden transform-gpu group select-none"
+            className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center overflow-hidden transform-gpu group select-none touch-action-none"
             onTouchStart={handleDoubleTap}
-            onDoubleClick={() => setShowReactorUI(prev => !prev)}
+            onMouseDown={handleDoubleTap}
           >
               {/* IMMERSIVE MODE */}
-              
               <div 
                  className={`absolute inset-0 bg-white ${selectedReactorMode.id === 'sleep_core' ? 'animate-pulse' : 'animate-pulse'}`} 
                  style={{ 
                      animationDuration: getReactorStrobeDuration(), 
-                     opacity: selectedReactorMode.id === 'sleep_core' ? 0.05 : 0.15 
+                     opacity: selectedReactorMode.id === 'sleep_core' ? 0.05 : 0.15,
+                     pointerEvents: 'none'
                  }}
               ></div>
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/10 to-transparent"></div>
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/10 to-transparent pointer-events-none"></div>
               
-              <div className="relative z-10 flex flex-col items-center scale-150">
+              <div className="relative z-10 flex flex-col items-center scale-150 pointer-events-none">
                   <Visualizer isActive={true} speedMultiplier={selectedReactorMode.id === 'sleep_core' ? 0.2 : 4} breathDuration={selectedReactorMode.id === 'sleep_core' ? '10s' : '1s'} />
               </div>
 
-              {/* AUTO-HIDE CONTROLS CONTAINER - TOGGLED VIA DOUBLE TAP/CLICK */}
-              <div className={`absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center pb-16 pt-20 bg-gradient-to-t from-black via-black/80 to-transparent transition-opacity duration-500 touch-action-manipulation ${showReactorUI ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+              {/* REACTOR HINT - MOVED INSIDE */}
+              {showReactorHint && !showReactorUI && (
+                  <div className="absolute bottom-32 flex flex-col items-center animate-fade-in-up">
+                      <div className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-2 text-white/70">
+                          <MousePointerClick className="w-5 h-5 animate-bounce" />
+                          <span className="text-xs font-bold uppercase tracking-widest">Toque 2x para Opções</span>
+                      </div>
+                  </div>
+              )}
+
+              {/* AUTO-HIDE CONTROLS CONTAINER - TOGGLED VIA DOUBLE TAP */}
+              <div className={`absolute bottom-0 left-0 right-0 z-50 flex flex-col items-center pb-16 pt-20 bg-gradient-to-t from-black via-black/80 to-transparent transition-opacity duration-300 ${showReactorUI ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
                   <div className="flex items-center gap-2 mb-8 bg-slate-900/80 backdrop-blur rounded-full p-1 border border-slate-700">
                       {REACTOR_MODES.map(mode => (
                           <button
@@ -746,7 +721,7 @@ const App: React.FC = () => {
                   </p>
 
                   <button
-                      onClick={() => toggleFrequency(REACTOR_FREQUENCY)}
+                      onClick={(e) => { e.stopPropagation(); toggleFrequency(REACTOR_FREQUENCY); }}
                       className="group flex items-center gap-3 px-8 py-4 rounded-full border border-red-500/50 bg-red-900/20 hover:bg-red-900/40 text-red-200 transition-all"
                   >
                       <Power className="w-6 h-6" />
@@ -763,32 +738,24 @@ const App: React.FC = () => {
                 <Menu className="w-5 h-5" />
              </button>
              <h1 className="text-xl font-orbitron font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-cyan-200">
-               RESSÁUREA
+               RESSAUREA
              </h1>
          </div>
 
          <div className="flex items-center gap-2">
-            {/* BIOMETRICS HEADER BUTTON - ADAPTED FOR PC */}
-            <button 
-                onClick={() => setShowCalibration(true)}
-                className="flex items-center gap-2 px-3 py-2 rounded-full text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all group"
-                title="Sintonizar Biometria"
-            >
-                <Fingerprint className="w-5 h-5 group-hover:text-cyan-400" />
-                <span className="hidden md:inline text-[10px] font-bold uppercase tracking-wider group-hover:text-cyan-400">BIO-SCAN</span>
-            </button>
-
             <button 
               onClick={() => setGuardianEnabledByUser(!guardianEnabledByUser)}
               className={`flex items-center gap-2 px-3 py-2 rounded-full transition-all duration-300 group ${
                 guardianEnabledByUser 
                   ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]' 
-                  : 'text-slate-600'
+                  : 'text-slate-500'
               }`}
               title={guardianEnabledByUser ? "Proteção Ativa" : "Proteção Inativa"}
             >
-              <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap hidden sm:inline-block">Proteção</span>
-              <ShieldCheck className={`w-6 h-6 flex-shrink-0 ${guardianEnabledByUser ? 'fill-cyan-500/20' : ''}`} />
+              <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap hidden sm:inline-block">PROTEÇÃO BASE ATIVA</span>
+              <div className={`w-8 h-4 rounded-full border flex items-center p-0.5 transition-colors ${guardianEnabledByUser ? 'bg-cyan-500/20 border-cyan-400' : 'bg-slate-700 border-slate-600'}`}>
+                   <div className={`w-3 h-3 rounded-full bg-current shadow-sm transition-transform duration-300 ${guardianEnabledByUser ? 'translate-x-4' : 'translate-x-0'}`}></div>
+              </div>
             </button>
          </div>
       </header>
@@ -813,8 +780,9 @@ const App: React.FC = () => {
              {/* CENTER: PLAY CONTROLS */}
              <div className="flex items-center gap-6">
                 <button 
-                  onClick={() => audioEngine.stopAll()} 
+                  onClick={handleStopAll} 
                   className="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-red-400 transition-all border border-transparent hover:border-red-500/30 hover:bg-red-900/10 flex-shrink-0"
+                  title="Parar Tudo (Áudio e Proteção)"
                 >
                     <Square className="w-3 h-3 fill-current" />
                 </button>
@@ -846,45 +814,44 @@ const App: React.FC = () => {
 
       <main className="pt-16 pb-24">
         
-        <div className="sticky top-16 z-40 bg-[#020617]/95 backdrop-blur-xl border-b border-white/5 pt-4 pb-2 shadow-2xl">
+        <div className="sticky top-16 z-40 bg-[#020617]/95 backdrop-blur-xl border-b border-white/5 pt-4 pb-0 shadow-2xl">
            <div className="max-w-6xl mx-auto px-4 space-y-4">
               
               {/* SCALAR & REACTOR COMPACT ROWS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* SCALAR MODE */}
-                  <div className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                  <div className="flex items-center justify-between bg-gradient-to-r from-cyan-950/40 to-cyan-900/20 p-3 rounded-lg border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
                       <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isScalarMode ? 'bg-slate-200 text-slate-900' : 'bg-slate-800 text-slate-500'}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all duration-500 ${isScalarMode ? 'bg-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.8)]' : 'bg-slate-900 text-cyan-500 border border-cyan-900'}`}>
                               <Infinity className="w-5 h-5" />
                           </div>
                           <div className="flex items-center gap-2">
-                              <div className="text-base md:text-lg font-bold text-white tracking-wide">Modo Escalar</div>
-                              <button onClick={() => setShowScalarHelp(true)} className="p-1 text-slate-500 hover:text-white rounded-full"><HelpCircle className="w-3 h-3"/></button>
+                              <div className="text-base md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 to-blue-400">Modo Escalar</div>
+                              <button onClick={() => setShowScalarHelp(true)} className="p-2 text-slate-500 hover:text-cyan-400 rounded-full"><HelpCircle className="w-5 h-5"/></button>
                           </div>
                       </div>
                       <button 
                           onClick={toggleScalarMode}
-                          className={`w-10 h-5 rounded-full transition-colors relative ${isScalarMode ? 'bg-slate-200' : 'bg-slate-700'}`}>
-                          <div className={`absolute top-1 w-3 h-3 rounded-full transition-transform duration-300 ${isScalarMode ? 'translate-x-6 bg-slate-900' : 'translate-x-1 bg-slate-400'}`}></div>
+                          className={`w-10 h-5 rounded-full transition-colors relative ${isScalarMode ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'bg-slate-800'}`}>
+                          <div className={`absolute top-1 w-3 h-3 rounded-full transition-transform duration-300 ${isScalarMode ? 'translate-x-6 bg-white shadow-sm' : 'translate-x-1 bg-slate-400'}`}></div>
                       </button>
                   </div>
 
-                  {/* REACTOR MODE (COMPACT) */}
-                  <div className="flex items-center justify-between bg-gradient-to-r from-red-900/20 to-orange-900/20 p-3 rounded-lg border border-orange-500/20">
+                  {/* REACTOR MODE */}
+                  <div className="flex items-center justify-between bg-gradient-to-r from-red-900/20 to-orange-900/20 p-3 rounded-lg border border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.1)]">
                       <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border border-orange-500/50 ${isReactorActive ? 'bg-orange-500 text-white shadow-[0_0_10px_orange]' : 'bg-slate-900 text-orange-500'}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border border-orange-500/50 shadow-lg ${isReactorActive ? 'bg-orange-500 text-white shadow-[0_0_15px_orange]' : 'bg-slate-900 text-orange-500'}`}>
                               <Atom className={`w-5 h-5 ${isReactorActive ? 'animate-spin' : ''}`} />
                           </div>
                           <div className="flex items-center gap-2">
                               <div className="text-base md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-200 to-red-400">O Reator</div>
-                              <button onClick={() => setShowReactorHelp(true)} className="p-1 text-slate-500 hover:text-white rounded-full"><HelpCircle className="w-3 h-3"/></button>
+                              <button onClick={() => setShowReactorHelp(true)} className="p-2 text-slate-500 hover:text-white rounded-full"><HelpCircle className="w-5 h-5"/></button>
                           </div>
                       </div>
-                      <button
+                      <button 
                           onClick={() => toggleFrequency(REACTOR_FREQUENCY)}
-                          className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider transition-all shadow-lg ${isReactorActive ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:text-white'}`}
-                      >
-                          {isReactorActive ? 'ATIVO' : 'ATIVAR'}
+                          className={`w-10 h-5 rounded-full transition-colors relative ${isReactorActive ? 'bg-orange-500 shadow-[0_0_10px_orange]' : 'bg-slate-700'}`}>
+                          <div className={`absolute top-1 w-3 h-3 rounded-full transition-transform duration-300 ${isReactorActive ? 'translate-x-6 bg-white shadow-sm' : 'translate-x-1 bg-slate-400'}`}></div>
                       </button>
                   </div>
               </div>
@@ -903,7 +870,7 @@ const App: React.FC = () => {
                       />
 
                       <div className="flex items-center gap-3 pr-1">
-                          <div className="hidden md:flex items-center gap-1 bg-slate-800/50 rounded-full p-1 border border-slate-700">
+                          <div className="flex items-center gap-1 bg-slate-800/50 rounded-full p-1 border border-slate-700">
                               <button 
                                  onClick={() => setSearchMode('INTENT')}
                                  className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all leading-none flex items-center ${searchMode === 'INTENT' ? 'bg-cyan-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
@@ -919,13 +886,6 @@ const App: React.FC = () => {
                           </div>
 
                           <button 
-                             onClick={() => setSearchMode(prev => prev === 'INTENT' ? 'MATRIX' : 'INTENT')}
-                             className="md:hidden text-[10px] font-bold px-2 py-1 bg-slate-800 rounded text-slate-400"
-                          >
-                             {searchMode === 'INTENT' ? 'INT' : 'MTX'}
-                          </button>
-
-                          <button 
                             onClick={() => handleGenerate()}
                             disabled={!searchTerm.trim() || isGenerating}
                             className={`w-10 h-10 flex items-center justify-center rounded-full text-white transition-all shadow-lg hover:scale-105 disabled:opacity-50 disabled:scale-100 ${searchMode === 'MATRIX' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-cyan-600 hover:bg-cyan-500'}`}
@@ -936,22 +896,38 @@ const App: React.FC = () => {
                   </div>
               </div>
 
-              <div className="flex gap-2 overflow-x-auto pb-4 pt-1 scrollbar-hide no-scrollbar items-center">
+              {/* CATEGORY LIST */}
+              <div className="flex gap-2 overflow-x-auto pt-4 pb-2 px-8 -mx-8 category-scroll items-center w-[calc(100%+4rem)]">
+                  <div className="pl-4"></div> {/* Extra spacer */}
                   <button
                       onClick={() => handleCategoryChange('All')}
-                      className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center min-h-[36px] ${
+                      className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center min-h-[36px] min-w-[80px] hover:scale-105 ${
                           selectedCategory === 'All' 
-                          ? 'bg-slate-100 text-slate-900 border-slate-100 shadow-[0_0_10px_white]' 
+                          ? 'bg-slate-100 text-slate-900 border-slate-100 shadow-[0_0_15px_rgba(255,255,255,0.2)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
                       }`}
                   >
                       TODOS
                   </button>
+
+                  {/* ATIVOS (PLAYING) CATEGORY - REFINED STYLE */}
+                  <button
+                      onClick={() => handleCategoryChange('ATIVOS')}
+                      className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center gap-2 min-h-[36px] min-w-[100px] hover:scale-105 ${
+                          selectedCategory === 'ATIVOS' || isAtivosHighlighted
+                          ? 'bg-amber-950/40 text-amber-100 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] scale-105 animate-pulse' 
+                          : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
+                      }`}
+                  >
+                      <Disc className={`w-4 h-4 ${activeCount > 0 ? 'animate-spin-slow text-amber-400' : ''}`} /> 
+                      ATIVOS ({activeCount})
+                  </button>
+
                   <button
                       onClick={() => handleCategoryChange('FAVORITOS')}
-                      className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center gap-2 min-h-[36px] ${
+                      className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center gap-2 min-h-[36px] min-w-[100px] hover:scale-105 ${
                           selectedCategory === 'FAVORITOS' 
-                          ? 'bg-rose-900/30 text-rose-200 border-rose-500/50 shadow-[0_0_10px_rgba(244,63,94,0.3)]' 
+                          ? 'bg-rose-900/30 text-rose-200 border-rose-500/50 shadow-[0_0_10px_rgba(244,63,94,0.3)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
                       }`}
                   >
@@ -962,16 +938,16 @@ const App: React.FC = () => {
                       const theme = getCategoryTheme(cat);
                       const isSelected = selectedCategory === cat;
                       const textColor = isSelected 
-                         ? (cat === FrequencyCategory.ABUNDANCE || cat === FrequencyCategory.PERFORMANCE || cat === FrequencyCategory.ARCHETYPE || cat === FrequencyCategory.SCALAR ? 'text-slate-900' : 'text-white')
+                         ? (cat === FrequencyCategory.ABUNDANCE || cat === FrequencyCategory.PERFORMANCE || cat === FrequencyCategory.ARCHETYPE ? 'text-slate-900' : 'text-white')
                          : 'text-slate-400';
 
                       return (
                           <button
                               key={cat}
                               onClick={() => handleCategoryChange(cat)}
-                              className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center min-h-[36px] ${
+                              className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center min-h-[36px] hover:scale-105 ${
                                   isSelected 
-                                  ? `bg-gradient-to-r ${theme.gradient} ${textColor} border-transparent shadow-lg` 
+                                  ? `bg-gradient-to-r ${theme.gradient} ${textColor} border-transparent shadow-lg scale-105` 
                                   : `bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500`
                               }`}
                           >
@@ -979,25 +955,93 @@ const App: React.FC = () => {
                           </button>
                       )
                   })}
+                  <div className="pr-12"></div> {/* Right spacer */}
               </div>
            </div>
         </div>
 
         <div className="max-w-6xl mx-auto px-4 pt-6 min-h-[100vh]" ref={listTopRef}>
           
-          <div className="mb-6 relative group scroll-mt-32">
-              <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                  <Search className="w-4 h-4 text-slate-500" />
+          <div className="mb-6 space-y-3">
+              <div className="relative group scroll-mt-32">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                      <Search className="w-4 h-4 text-slate-500" />
+                  </div>
+                  <input 
+                    ref={searchInputRef}
+                    type="text"
+                    value={filterTerm}
+                    onChange={(e) => setFilterTerm(e.target.value)}
+                    placeholder="Filtrar sua coleção..."
+                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:border-cyan-500/50 focus:bg-slate-900 transition-all placeholder-slate-600"
+                  />
               </div>
-              <input 
-                ref={searchInputRef}
-                type="text"
-                value={filterTerm}
-                onChange={(e) => setFilterTerm(e.target.value)}
-                placeholder="Filtrar sua coleção..."
-                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:border-cyan-500/50 focus:bg-slate-900 transition-all placeholder-slate-600"
-              />
+
+              {/* TOP ACTION BAR */}
+              <div className="flex justify-end h-10 items-center">
+                   {!isSelectionMode ? (
+                       <button 
+                           onClick={() => {
+                               setIsSelectionMode(true);
+                               setSelectedItems(new Set());
+                           }}
+                           className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 px-4 py-2 rounded-full border border-slate-700 transition-all"
+                       >
+                           <ListChecks className="w-4 h-4" /> Selecionar Vários
+                       </button>
+                   ) : (
+                       <div className="flex items-center gap-2 animate-fadeIn">
+                           <button
+                              onClick={handleSelectAll}
+                              className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-300 text-xs font-bold border border-slate-600"
+                           >
+                              <CheckSquare className="w-3 h-3" /> Selecionar Tudo
+                           </button>
+                       </div>
+                   )}
+              </div>
           </div>
+
+          {/* === GUARDIAN FREQUENCY BANNER (EXCLUSIVE TO 'ATIVOS') === */}
+          {selectedCategory === 'ATIVOS' && guardianActive && guardianEnabledByUser && (
+              <div className="mb-6 animate-fade-in-up">
+                  <div className="relative overflow-hidden rounded-xl border border-cyan-500/50 bg-cyan-950/20 shadow-[0_0_30px_rgba(6,182,212,0.15)]">
+                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-900/30 via-transparent to-transparent"></div>
+                      <div className="p-4 md:p-6 flex items-center justify-between relative z-10">
+                          <div className="flex items-center gap-4">
+                              <div className="w-14 h-14 rounded-full flex items-center justify-center bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+                                  <Shield className="w-7 h-7" />
+                              </div>
+                              <div>
+                                  <div className="flex items-center gap-3">
+                                      <h3 className="font-orbitron font-bold text-white text-lg tracking-wider">PROTEÇÃO BASE</h3>
+                                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/30">
+                                          <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>
+                                          <span className="text-[10px] font-bold text-cyan-300 tracking-wide">SISTEMA ATIVO</span>
+                                      </div>
+                                  </div>
+                                  <p className="text-sm text-cyan-200/70 mt-1 max-w-lg">
+                                      Escudo vibracional de fundo operando em 432Hz. Bloqueio de negatividade e harmonização contínua.
+                                  </p>
+                              </div>
+                          </div>
+                          
+                          {/* SEPARATE TOGGLE */}
+                          <div className="flex flex-col items-end gap-2">
+                              <button 
+                                  onClick={() => setGuardianEnabledByUser(false)}
+                                  className="group flex items-center gap-3 px-4 py-2 rounded-full bg-cyan-900/30 border border-cyan-500/30 hover:bg-red-900/30 hover:border-red-500/50 transition-all"
+                              >
+                                  <span className="text-xs font-bold text-cyan-300 group-hover:text-red-300 transition-colors uppercase tracking-wider">Desativar</span>
+                                  <div className="w-10 h-5 rounded-full bg-cyan-500/20 border border-cyan-500/50 relative group-hover:border-red-500/50 transition-colors">
+                                      <div className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-cyan-400 rounded-full shadow-[0_0_8px_cyan] group-hover:bg-red-400 group-hover:shadow-[0_0_8px_red] transition-all"></div>
+                                  </div>
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          )}
 
           {/* GENERATED FREQUENCIES (UNIFIED LIST) */}
           {filteredFrequencies.some(f => f.id.startsWith('custom_') || f.id.startsWith('offline_')) && (
@@ -1006,18 +1050,6 @@ const App: React.FC = () => {
                     <h3 className="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
                        <Cloud className="w-3 h-3" /> Minhas Frequências (Geradas)
                     </h3>
-                    
-                    {!isSelectionMode && (
-                        <button 
-                           onClick={() => {
-                               setIsSelectionMode(true);
-                               setSelectedItems(new Set());
-                           }}
-                           className="text-xs text-slate-500 hover:text-white flex items-center gap-1 transition-colors"
-                        >
-                            <Edit3 className="w-3 h-3" /> Gerenciar Lista
-                        </button>
-                    )}
                  </div>
 
                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -1040,34 +1072,73 @@ const App: React.FC = () => {
 
           {filteredFrequencies.length === 0 && (
               <div className="col-span-full text-center py-20 text-slate-500">
-                  <WifiOff className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                  <p>Nenhuma frequência encontrada.</p>
+                  {selectedCategory === 'ATIVOS' ? (
+                      <>
+                        <Volume2 className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                        <p>Nenhuma frequência tocando no momento.</p>
+                      </>
+                  ) : (
+                      <>
+                        <WifiOff className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                        <p>Nenhuma frequência encontrada.</p>
+                      </>
+                  )}
               </div>
           )}
         </div>
       </main>
 
-      {/* --- FLOATING MANAGE BAR (BOTTOM) --- */}
+      {/* --- FLOATING UNIFIED ACTION BAR (BOTTOM DOCK) --- */}
       {isSelectionMode && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-4 bg-slate-900 border border-slate-700 p-2 rounded-full shadow-2xl animate-fade-in-up">
-              <div className="pl-4 text-sm font-bold text-white">
-                  {selectedItems.size} selecionados
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] animate-fade-in-up w-auto max-w-[95vw]">
+              <div className="flex items-center bg-slate-900/90 backdrop-blur-xl border border-slate-700 rounded-full shadow-2xl p-1 gap-1">
+                  
+                  {/* SELECTION COUNTER (LEFT SIDE) */}
+                  <div className="flex items-center gap-2 px-4 py-2 border-r border-slate-700/50">
+                      <div className="w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                          {selectedItems.size}
+                      </div>
+                      <span className="text-xs font-bold text-slate-400 uppercase hidden sm:block">Selecionados</span>
+                  </div>
+
+                  {/* ACTION BUTTONS (RIGHT SIDE) */}
+                  <div className="flex items-center gap-1">
+                      <button 
+                          onClick={() => setIsSelectionMode(false)}
+                          className="px-4 py-2.5 text-slate-300 hover:text-white hover:bg-slate-800 font-bold rounded-full transition-all text-xs"
+                      >
+                          Cancelar
+                      </button>
+
+                      {selectedItems.size > 0 && (
+                          <>
+                            <button 
+                                onClick={handleDownloadSelected}
+                                className="p-2.5 text-cyan-400 hover:bg-cyan-900/20 rounded-full transition-all"
+                                title="Baixar Selecionados"
+                            >
+                                <Download className="w-5 h-5" />
+                            </button>
+
+                            <button 
+                                onClick={handlePlaySelected}
+                                className="p-2.5 text-emerald-400 hover:bg-emerald-900/20 rounded-full transition-all"
+                                title="Tocar Selecionados"
+                            >
+                                <Play className="w-5 h-5 fill-current" />
+                            </button>
+                            
+                            <button 
+                                onClick={() => setShowDeleteConfirm(true)}
+                                className="p-2.5 text-red-400 hover:bg-red-900/20 rounded-full transition-all"
+                                title="Apagar Selecionados"
+                            >
+                                <Trash2 className="w-5 h-5" />
+                            </button>
+                          </>
+                      )}
+                  </div>
               </div>
-              <div className="h-4 w-px bg-slate-700"></div>
-              <button 
-                  onClick={() => setIsSelectionMode(false)} 
-                  className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white"
-              >
-                  Cancelar
-              </button>
-              {selectedItems.size > 0 && (
-                  <button 
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-full shadow-lg shadow-red-900/40 transition-all"
-                  >
-                      <Trash2 className="w-3 h-3" /> Apagar
-                  </button>
-              )}
           </div>
       )}
 
@@ -1164,10 +1235,10 @@ const App: React.FC = () => {
                   <p className="text-slate-400 text-center text-sm mb-6">
                       {singleDeleteId 
                         ? <span>Deseja apagar esta frequência permanentemente?</span>
-                        : <span>Você selecionou <span className="text-red-400 font-bold">{selectedItems.size}</span> itens.</span>
+                        : <span>Você selecionou <span className="text-red-400 font-bold">{selectedItems.size}</span> itens para exclusão.</span>
                       }
                       <br/>
-                      Essa ação não pode ser desfeita.
+                      <span className="text-xs mt-2 block opacity-70">Elas serão removidas da sua lista visual.</span>
                   </p>
                   <div className="flex gap-3">
                       <button 
@@ -1180,7 +1251,7 @@ const App: React.FC = () => {
                           onClick={handleDeleteSelected}
                           className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-500 transition-colors shadow-lg shadow-red-900/20"
                       >
-                          Confirmar
+                          Apagar
                       </button>
                   </div>
               </div>
@@ -1203,7 +1274,7 @@ const App: React.FC = () => {
          </div>
       </div>
 
-      {/* REACTOR HELP MODAL */}
+      {/* REACTOR HELP MODAL - UPDATED COPY */}
       {showReactorHelp && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
             <div className="bg-slate-950 border border-orange-500/30 rounded-2xl max-w-md w-full p-6 relative shadow-[0_0_50px_rgba(255,100,0,0.2)]">
@@ -1212,19 +1283,19 @@ const App: React.FC = () => {
                     <Atom className="w-6 h-6 text-orange-500" /> O REATOR (Nível Supremo)
                 </h3>
                 <div className="space-y-4 text-slate-300">
-                    <p>Você perguntou o que é mais poderoso que a Onda Escalar. A resposta é a <strong>FUSÃO GAMMA</strong>.</p>
+                    <p>O Modo Reator é a <strong>SUPREMACIA ENERGÉTICA</strong> deste sistema. Uma tecnologia reservada para quem exige resultados absolutos.</p>
                     
                     <div className="bg-slate-900 p-4 rounded-lg border border-slate-800">
-                        <h4 className="text-orange-400 font-bold mb-1">Como Funciona?</h4>
-                        <p>Este modo injeta um pulso visual e auditivo de 40Hz (Gamma) diretamente no vácuo criado pelo silêncio escalar.</p>
+                        <h4 className="text-orange-400 font-bold mb-1">Potência Máxima</h4>
+                        <p>Através da <strong>FUSÃO GAMMA (40Hz)</strong>, este modo sincroniza instantaneamente os hemisférios cerebrais, criando um estado de hiper-foco e materialização acelerada.</p>
                     </div>
 
                     <div className="bg-slate-900 p-4 rounded-lg border border-slate-800">
-                        <h4 className="text-orange-400 font-bold mb-1">Anatomia Mística</h4>
-                        <p>Ao forçar os hemisférios esquerdo e direito a piscarem juntos, o <strong>Corpo Caloso</strong> (a ponte do cérebro) se torna um supercondutor de luz.</p>
+                        <h4 className="text-orange-400 font-bold mb-1">Uso Estratégico</h4>
+                        <p>Ative este modo para romper bloqueios estagnados, acelerar manifestações ou atingir picos de performance cognitiva impossíveis em estado normal.</p>
                     </div>
 
-                    <p className="text-xs text-center text-slate-500 mt-4">AVISO: Contém luzes estroboscópicas suaves. Não use se tiver fotossensibilidade.</p>
+                    <p className="text-xs text-center text-slate-500 mt-4">AVISO: Contém luzes estroboscópicas. Não use se tiver fotossensibilidade.</p>
                 </div>
             </div>
         </div>
@@ -1257,82 +1328,7 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* BIOMETRICS CALIBRATION MODAL */}
-      {showCalibration && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-           <div className="bg-slate-900 border border-cyan-500/30 rounded-3xl max-w-sm w-full pt-4 pb-8 px-8 relative flex flex-col items-center shadow-[0_0_50px_rgba(6,182,212,0.2)]">
-               {!personalFrequency && (
-                   <button onClick={() => setShowCalibration(false)} className="absolute top-4 right-4 text-slate-500"><X className="w-5 h-5" /></button>
-               )}
-
-               {calibrationStep === 'idle' && personalFrequency && (
-                   <>
-                      <div className="w-20 h-20 rounded-full bg-cyan-900/30 flex items-center justify-center mb-6 border border-cyan-500/50 shadow-[0_0_20px_cyan]">
-                          <Fingerprint className="w-10 h-10 text-cyan-400" />
-                      </div>
-                      <h2 className="text-2xl font-bold text-white mb-2 text-center">Calibrado</h2>
-                      <p className="text-cyan-400 text-3xl font-orbitron mb-4">{personalFrequency.hz} Hz</p>
-                      
-                      {(() => {
-                          const advice = getBiometricAdvice(personalFrequency.hz);
-                          return (
-                              <div className="mb-6 text-center bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                                  <h4 className={`text-sm font-bold mb-1 ${advice.color}`}>{advice.title}</h4>
-                                  <p className="text-xs text-slate-300 leading-relaxed">{advice.text}</p>
-                              </div>
-                          );
-                      })()}
-
-                      <button onClick={resetCalibration} className="flex items-center gap-2 text-slate-300 hover:text-white mb-4">
-                          <RefreshCcw className="w-4 h-4" /> Recalibrar
-                      </button>
-                      <button onClick={() => setShowCalibration(false)} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-3 rounded-xl font-bold transition-colors">
-                          Continuar
-                      </button>
-                   </>
-               )}
-
-               {(calibrationStep === 'idle' && !personalFrequency) || calibrationStep === 'scanning' ? (
-                   <>
-                      <h2 className="text-xl font-bold text-white mb-2 text-center mt-2">Calibração Biométrica</h2>
-                      <p className="text-slate-400 text-center text-xs mb-8">
-                         {isTouchDevice ? 'Mantenha pressionado para leitura do campo bio-elétrico.' : 'No PC: Mantenha o clique pressionado para focar sua intenção.'} <br/>
-                         <span className="text-cyan-400">Etapa {scanReadings.length + 1} de {MAX_SCANS}</span>
-                      </p>
-                      
-                      <div 
-                        className="relative w-32 h-32 flex items-center justify-center cursor-pointer mb-8 select-none"
-                        onMouseDown={startBiometricScan}
-                        onTouchStart={(e) => { e.preventDefault(); startBiometricScan(); }}
-                      >
-                         {/* CALMING BREATH ANIMATION */}
-                         <div className={`absolute inset-0 bg-cyan-500/20 rounded-full blur-xl transition-all duration-[2000ms] ease-in-out ${isScanning ? 'scale-125 opacity-80' : 'scale-100 opacity-40 animate-pulse'}`}></div>
-                         
-                         {isTouchDevice ? (
-                             <Fingerprint className={`relative z-10 w-16 h-16 transition-all duration-1000 ${isScanning ? 'text-white' : 'text-cyan-500/50'}`} />
-                         ) : (
-                             <MousePointer2 className={`relative z-10 w-16 h-16 transition-all duration-1000 ${isScanning ? 'text-white' : 'text-cyan-500/50'}`} />
-                         )}
-                      </div>
-
-                      <div className="bg-slate-800/50 rounded-xl p-4 w-full">
-                          <h3 className="text-xs font-bold text-slate-300 mb-2 flex items-center gap-2">
-                             <Activity className="w-3 h-3 text-cyan-400" /> Bio-Ressonância Digital
-                          </h3>
-                          <p className="text-[10px] text-slate-400 leading-relaxed">
-                              {isTouchDevice 
-                                ? 'O sensor detecta micro-variações no toque. ' 
-                                : 'A conexão é estabelecida através do foco da sua intenção durante o clique. '}
-                              O algoritmo converte essa energia em uma frequência Hz correspondente ao seu estado atual.
-                          </p>
-                      </div>
-                   </>
-               ) : null}
-           </div>
-        </div>
-      )}
-
-      {/* RESONANCE SIGNS MODAL */}
+      {/* RESONANCE SIGNS MODAL - UPDATED */}
       {showSigns && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
               <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 relative">
@@ -1342,20 +1338,24 @@ const App: React.FC = () => {
                   </h3>
                   <ul className="space-y-3 text-sm text-slate-300">
                       <li className="flex items-start gap-3">
-                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400"></div>
-                          <span><strong>Calor ou Formigamento:</strong> Sinal de aumento da circulação energética e ativação celular.</span>
+                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400 flex-shrink-0"></div>
+                          <span><strong>Gosto Metálico na Boca:</strong> Sensação distinta no paladar ou língua, indicando forte ionização e resposta do sistema nervoso.</span>
                       </li>
                       <li className="flex items-start gap-3">
-                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400"></div>
-                          <span><strong>Relaxamento Profundo:</strong> Sensação de "peso" agradável, indicando que o cérebro entrou em Alpha/Theta.</span>
+                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400 flex-shrink-0"></div>
+                          <span><strong>Formigamento no Topo da Cabeça:</strong> Ativação do Chakra Coronário e fluxo energético.</span>
                       </li>
                       <li className="flex items-start gap-3">
-                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400"></div>
-                          <span><strong>Claridade Mental:</strong> Redução drástica do ruído mental e pensamentos repetitivos.</span>
+                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400 flex-shrink-0"></div>
+                          <span><strong>Calor Súbito:</strong> Aumento da circulação energética e ativação celular localizada.</span>
                       </li>
                       <li className="flex items-start gap-3">
-                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400"></div>
-                          <span><strong>Bocejos ou Suspiros:</strong> Liberação de tensão acumulada no sistema nervoso (Vago).</span>
+                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400 flex-shrink-0"></div>
+                          <span><strong>Relaxamento Profundo:</strong> Sensação de "peso" agradável, indicando entrada em Alpha/Theta.</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400 flex-shrink-0"></div>
+                          <span><strong>Claridade Mental:</strong> Silêncio interno imediato e redução do ruído mental.</span>
                       </li>
                   </ul>
               </div>
@@ -1402,39 +1402,16 @@ const App: React.FC = () => {
 
   // Helper render function for cards to avoid code dup
   function renderCard(freq: Frequency) {
+      // NOTE: Guardian Frequency is handled separately now, but we keep this check just in case
+      // logic changes elsewhere, though it shouldn't be reached in the grid map.
+      if (freq.id === GUARDIAN_FREQUENCY.id) return null;
+
       const isActive = activeFrequencies.includes(freq.id);
       const theme = getCategoryTheme(freq.category);
       const isFav = favorites.includes(freq.id);
       const downloading = isDownloading === freq.id;
       const isSelectedForDelete = selectedItems.has(freq.id);
-
-      // Determine the origin icon (Offline or Online) for generated cards
-      const isOfflineGen = freq.id.startsWith('offline_');
-      const isGenerated = freq.id.startsWith('custom_') || isOfflineGen;
       
-      // Determine badge properties
-      let badge = null;
-      if (isGenerated) {
-          if (isOfflineGen) {
-              badge = (
-                  <div className="absolute top-0 right-0 bg-amber-500/20 text-amber-200 text-[9px] font-bold px-2 py-1 rounded-bl-lg backdrop-blur-sm border-l border-b border-amber-500/30 flex items-center gap-1 z-20">
-                      <Database className="w-3 h-3" />
-                      <span>GEOMETRIA</span>
-                  </div>
-              );
-          } else {
-              badge = (
-                  <div className="absolute top-0 right-0 bg-cyan-500/20 text-cyan-200 text-[9px] font-bold px-2 py-1 rounded-bl-lg backdrop-blur-sm border-l border-b border-cyan-500/30 flex items-center gap-1 z-20">
-                      <Cloud className="w-3 h-3" />
-                      <span>NUVEM IA</span>
-                  </div>
-              );
-          }
-      } else {
-          // Optional: Badge for system presets if desired, or leave clean
-          // badge = <div className="absolute top-0 right-0 bg-slate-700/30 text-slate-400 text-[9px] font-bold px-2 py-1 rounded-bl-lg flex items-center gap-1 z-20"><Cpu className="w-3 h-3"/><span>SISTEMA</span></div>;
-      }
-
       return (
           <div 
             key={freq.id}
@@ -1443,31 +1420,28 @@ const App: React.FC = () => {
             className={`relative overflow-hidden rounded-2xl border transition-all duration-500 group ${
                 isSelectionMode 
                    ? isSelectedForDelete 
-                       ? 'bg-red-900/20 border-red-500 scale-[0.98]' 
-                       : 'bg-slate-900/40 border-slate-700 hover:bg-slate-800'
+                       ? 'bg-cyan-900/30 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)] scale-[0.98]' 
+                       : 'bg-slate-900/40 border-slate-600 hover:border-slate-400 cursor-pointer'
                    : isActive 
                        ? `${theme.bg} ${theme.border} ${theme.shadow} scale-[1.02]` 
                        : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'
-            } ${isSelectionMode && isGenerated ? 'cursor-pointer' : ''}`}
+            }`}
           >
             {isActive && !isSelectionMode && (
                 <div className={`absolute inset-0 bg-gradient-to-r ${theme.gradient} opacity-5`}></div>
             )}
             
-            {/* SOURCE BADGE */}
-            {badge}
-
-            {/* DELETE OVERLAY (Only for generated) */}
-            {isSelectionMode && isGenerated && (
-                <div className="absolute top-4 right-4 z-20">
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelectedForDelete ? 'bg-red-500 border-red-500' : 'border-slate-500'}`}>
-                        {isSelectedForDelete && <X className="w-4 h-4 text-white" />}
+            {/* SELECTION OVERLAY CHECKMARK (CYAN/BLUE) */}
+            {isSelectionMode && (
+                <div className="absolute top-4 right-4 z-20 animate-fade-in-up">
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelectedForDelete ? 'bg-cyan-500 border-cyan-500 shadow-lg' : 'border-slate-500 bg-slate-900/50'}`}>
+                        {isSelectedForDelete && <Check className="w-4 h-4 text-white" />}
                     </div>
                 </div>
             )}
 
-            <div className={`p-5 flex items-center justify-between relative z-10 ${isSelectionMode && isGenerated ? 'opacity-70 pointer-events-none' : ''}`}>
-                <div className="flex items-center gap-4 flex-1">
+            <div className={`p-5 flex items-center justify-between relative z-10 ${isSelectionMode ? 'pointer-events-none' : ''}`}>
+                <div className="flex items-center gap-4 flex-1 min-w-0"> {/* added min-w-0 to fix flex overflow */}
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleFrequency(freq); }}
                       className={`w-12 h-12 flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-700 shadow-lg border border-white/10 ${
@@ -1475,20 +1449,25 @@ const App: React.FC = () => {
                           ? `bg-gradient-to-br ${theme.gradient} text-white scale-110 shadow-[0_0_15px_rgba(255,255,255,0.3)]` 
                           : 'bg-slate-800 text-slate-500 group-hover:bg-slate-700'
                       }`}
+                      disabled={isSelectionMode}
                     >
                         {isActive ? (
-                            <Square className="w-5 h-5 fill-current" />
+                             // STOP BUTTON WITH BETTER CONTRAST
+                            <div className="bg-black/20 w-8 h-8 rounded-full flex items-center justify-center shadow-inner">
+                                <Square className="w-4 h-4 fill-white text-white" />
+                            </div>
                         ) : (
                             <Play className="w-5 h-5 fill-current pl-1" />
                         )}
                     </button>
 
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 mt-3">
-                            <h3 className={`font-rajdhani font-bold text-lg leading-tight truncate ${isActive ? 'text-white' : 'text-slate-200'}`}>
+                        {/* FIX FOR CARD LAYOUT (12Hz/200Hz BADGES) */}
+                        <div className="flex items-start justify-between gap-3 mb-1 mt-3">
+                            <h3 className={`font-rajdhani font-bold text-lg leading-tight line-clamp-2 ${isActive ? 'text-white' : 'text-slate-200'}`}>
                                 {freq.name}
                             </h3>
-                            <span className={`flex items-center justify-center text-[10px] px-2 py-0.5 rounded-full border bg-opacity-20 whitespace-nowrap flex-shrink-0 ${isActive ? 'border-white/30 text-white' : 'border-slate-700 text-slate-500'}`}>
+                            <span className={`flex items-center justify-center text-[10px] px-2 py-0.5 rounded-full border bg-opacity-20 whitespace-nowrap flex-shrink-0 ml-auto mt-0.5 ${isActive ? 'border-white/30 text-white' : 'border-slate-700 text-slate-500'}`}>
                                 {freq.hz} Hz
                             </span>
                         </div>
@@ -1498,33 +1477,35 @@ const App: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-2 ml-4">
+                {/* ICONS COLUMN */}
+                <div className={`flex flex-col gap-2 ml-4 flex-shrink-0 transition-opacity duration-300 ${isSelectionMode ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                     <button 
-                      onClick={(e) => toggleFavorite(e, freq.id)}
-                      className={`p-2 rounded-full transition-colors ${isFav ? 'text-rose-400 bg-rose-400/10' : 'text-slate-600 hover:text-slate-400'}`}
+                    onClick={(e) => toggleFavorite(e, freq.id)}
+                    className={`p-2 rounded-full transition-colors ${isFav ? 'text-rose-400 bg-rose-400/10' : 'text-slate-600 hover:text-slate-400'}`}
+                    disabled={isSelectionMode}
                     >
                         <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
                     </button>
                     <button 
-                      onClick={(e) => handleDownload(e, freq)}
-                      className={`p-2 rounded-full transition-colors ${downloading ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 hover:text-cyan-400'}`}
-                      title="Baixar Áudio (Offline)"
+                    onClick={(e) => handleDownload(e, freq)}
+                    className={`p-2 rounded-full transition-colors ${downloading ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 hover:text-cyan-400'}`}
+                    title="Baixar Áudio"
+                    disabled={isSelectionMode}
                     >
                         {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                     </button>
-                    {isGenerated && !isSelectionMode && (
-                        <button 
-                           onClick={(e) => { 
-                               e.stopPropagation(); 
-                               setSingleDeleteId(freq.id); 
-                               setShowDeleteConfirm(true); 
-                           }}
-                           className="p-2 rounded-full text-slate-600 hover:text-red-400 transition-colors"
-                           title="Apagar Frequência"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                        </button>
-                    )}
+                    
+                    <button 
+                        onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setSingleDeleteId(freq.id); 
+                            setShowDeleteConfirm(true); 
+                        }}
+                        className="p-2 rounded-full text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition-colors"
+                        title="Apagar Frequência"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
                 </div>
             </div>
           </div>
