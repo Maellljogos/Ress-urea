@@ -8,7 +8,6 @@ import {
   Activity, 
   ArrowRight, 
   LogOut, 
-  Search, 
   Heart, 
   Play, 
   Pause, 
@@ -19,13 +18,11 @@ import {
   WifiOff,
   Database,
   Sparkles,
-  Zap,
-  CheckCircle2,
-  RefreshCcw,
-  Loader2,
   Atom,
   Power,
-  Info
+  RefreshCcw,
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
 import { PRESET_FREQUENCIES, CATEGORIES, GUARDIAN_FREQUENCY, REACTOR_FREQUENCY } from './constants';
 import { Frequency, FrequencyCategory } from './types';
@@ -61,7 +58,6 @@ const App: React.FC = () => {
   // Personal Calibration State
   const [showCalibration, setShowCalibration] = useState(false);
   const [personalFrequency, setPersonalFrequency] = useState<Frequency | null>(null);
-  const [recommendedFrequencies, setRecommendedFrequencies] = useState<Frequency[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [calibrationStep, setCalibrationStep] = useState<'idle' | 'scanning' | 'complete'>('idle');
   const [scanProgress, setScanProgress] = useState(0);
@@ -113,27 +109,20 @@ const App: React.FC = () => {
 
   // Wake Lock Logic (Video Hack)
   useEffect(() => {
-    // When Reactor state changes, handle video playback to ensure screen stays on
     if (isReactorActive) {
         if (videoRef.current) {
-            const playPromise = videoRef.current.play();
-            if (playPromise !== undefined) {
-                playPromise.catch(e => {
-                    console.log("WakeLock video init deferred (user interaction needed).");
-                });
-            }
+            videoRef.current.play().catch(e => {
+                 // User interaction requirement might block this initially
+                 console.log("WakeLock deferred");
+            });
         }
-        
-        // Try WakeLock API as backup
         if ('wakeLock' in navigator) {
             (navigator as any).wakeLock.request('screen')
                 .then((lock: any) => { wakeLockRef.current = lock; })
                 .catch((e: any) => console.log('WakeLock API failed', e));
         }
     } else {
-        if (videoRef.current) {
-            videoRef.current.pause();
-        }
+        if (videoRef.current) videoRef.current.pause();
         if (wakeLockRef.current) {
             wakeLockRef.current.release().catch(() => {});
             wakeLockRef.current = null;
@@ -191,7 +180,6 @@ const App: React.FC = () => {
 
     const hasFocusFrequencies = activeFrequencies.some(id => {
       const freq = allFrequencies.find(f => f.id === id);
-      // Also pause guardian if Reactor is active
       const isReactor = id === REACTOR_FREQUENCY.id;
       return isReactor || (freq && (
           freq.category === FrequencyCategory.PERFORMANCE || 
@@ -239,7 +227,7 @@ const App: React.FC = () => {
   const toggleAudibleMode = () => {
     const newVal = !isAudible;
     setIsAudible(newVal);
-    audioEngine.setSubliminalMode(!newVal); // if audible is true, subliminal is false
+    audioEngine.setSubliminalMode(!newVal); 
   };
 
   const toggleFrequency = (freq: Frequency) => {
@@ -260,24 +248,16 @@ const App: React.FC = () => {
 
   const handleGenerate = async () => {
     if (!searchTerm.trim()) return;
-
     setIsGenerating(true);
-    
-    // Determine category based on mode
     const isMatrix = searchMode === 'MATRIX';
     const cat = isMatrix ? FrequencyCategory.HYPER_MATRIX : FrequencyCategory.CUSTOM;
-
     const newFrequencies = await generateFrequenciesFromIntent(searchTerm, cat);
-    
     setGeneratedFrequencies(prev => [...newFrequencies, ...prev]);
     setIsGenerating(false);
-    
     setSearchTerm('');
-
     if (newFrequencies.length > 0) {
         if (!isMatrix) setSelectedCategory('All'); 
         else setSelectedCategory(FrequencyCategory.HYPER_MATRIX);
-
         setLastGeneratedId(newFrequencies[0].id);
     }
   };
@@ -293,7 +273,6 @@ const App: React.FC = () => {
     scanInterval.current = setInterval(() => {
       progress += 2;
       setScanProgress(progress);
-      
       if (progress >= 100) {
         clearInterval(scanInterval.current);
         finishSingleScan();
@@ -306,7 +285,6 @@ const App: React.FC = () => {
     const reading = Math.floor(Math.random() * 580) + 20;
     const newReadings = [...scanReadings, reading];
     setScanReadings(newReadings);
-
     if (newReadings.length < MAX_SCANS) {
        setScanProgress(0);
        setCalibrationStep('scanning'); 
@@ -318,7 +296,6 @@ const App: React.FC = () => {
   const finalizeCalibration = (readings: number[]) => {
       const avg = readings.reduce((a, b) => a + b, 0) / readings.length;
       const finalHz = Number(avg.toFixed(2));
-
       const identityFreq: Frequency = {
         id: 'personal_identity',
         hz: finalHz,
@@ -326,11 +303,8 @@ const App: React.FC = () => {
         description: 'Sintonia média triangulada do seu campo bio-elétrico atual.',
         category: FrequencyCategory.PERSONAL,
       };
-
       setPersonalFrequency(identityFreq);
       localStorage.setItem('quantum_personal_freq', JSON.stringify(identityFreq));
-
-      // Reset step to 'idle' so the UI renders the result view (which checks for personalFrequency)
       setCalibrationStep('idle'); 
   };
 
@@ -363,7 +337,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Visualizer Speed
   const getActiveHzAverage = () => {
       if (activeFrequencies.length === 0) return 0;
       let total = 0;
@@ -375,7 +348,6 @@ const App: React.FC = () => {
               count++;
           }
       });
-      // Add Reactor if active
       if (activeFrequencies.includes(REACTOR_FREQUENCY.id)) {
           total += REACTOR_FREQUENCY.hz;
           count++;
@@ -467,8 +439,8 @@ const App: React.FC = () => {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.1),transparent_70%)] animate-pulse" style={{ animationDuration: '8s' }}></div>
         </div>
 
-        {/* WELCOME SCREEN CONTENT - Moved UP with -mt-32 */}
-        <div className="relative z-10 flex flex-col items-center text-center max-w-md w-full -mt-32">
+        {/* WELCOME SCREEN CONTENT */}
+        <div className="relative z-10 flex flex-col items-center text-center max-w-md w-full -mt-16">
           <div className="mb-12 scale-125">
              <Visualizer isActive={false} />
           </div>
@@ -516,7 +488,7 @@ const App: React.FC = () => {
          loop 
          muted 
          playsInline 
-         className="fixed w-1 h-1 opacity-0 pointer-events-none top-0 left-0"
+         className="fixed w-1 h-1 -z-10 opacity-0 pointer-events-none top-0 left-0"
          src={WAKE_LOCK_VIDEO}
       />
 
@@ -527,7 +499,7 @@ const App: React.FC = () => {
 
       {/* --- REACTOR MODE OVERLAY (FULL SCREEN) --- */}
       {isReactorActive && (
-          <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center overflow-hidden animate-fade-in-up">
+          <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center overflow-hidden animate-fade-in-up transform-gpu">
               {/* Strobe Effect Layer */}
               <div className="absolute inset-0 bg-white animate-pulse" style={{ animationDuration: '0.08s', opacity: 0.15 }}></div>
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/10 to-transparent"></div>
@@ -536,7 +508,7 @@ const App: React.FC = () => {
                   <Visualizer isActive={true} speedMultiplier={4} />
               </div>
 
-              <div className="absolute bottom-12 left-0 right-0 z-10 text-center animate-pulse flex flex-col items-center">
+              <div className="absolute bottom-12 left-0 right-0 z-10 text-center flex flex-col items-center pointer-events-auto">
                   <h2 className="text-4xl font-orbitron font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-orange-400 to-red-500 mb-2">
                       FUSÃO GAMMA
                   </h2>
@@ -639,7 +611,6 @@ const App: React.FC = () => {
       </div>
 
       {/* --- SCROLLABLE CONTENT AREA --- */}
-      {/* Padding added (pt-16 for header, pb-32 for footer) so nothing is hidden. */}
       <main className="pt-16 pb-32 animate-fade-in-up">
         
         {/* STICKY SEARCH & CATEGORIES */}
