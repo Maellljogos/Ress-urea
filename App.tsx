@@ -36,7 +36,9 @@ import {
   Disc,
   Shield,
   Zap,
-  Sparkles
+  Sparkles,
+  History,
+  Eraser
 } from 'lucide-react';
 import { PRESET_FREQUENCIES, CATEGORIES, GUARDIAN_FREQUENCY, REACTOR_FREQUENCY, REACTOR_MODES, UPLIFT_FREQUENCY } from './constants';
 import { Frequency, FrequencyCategory } from './types';
@@ -64,6 +66,8 @@ const App: React.FC = () => {
 
   const [guardianActive, setGuardianActive] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [recentFrequencies, setRecentFrequencies] = useState<string[]>([]); // RECENT HISTORY STATE
+
   const [isPlaying, setIsPlaying] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [isAudible, setIsAudible] = useState(false);
@@ -113,6 +117,9 @@ const App: React.FC = () => {
     const savedFavs = localStorage.getItem('quantum_favorites');
     if (savedFavs) setFavorites(JSON.parse(savedFavs));
     
+    const savedRecents = localStorage.getItem('quantum_recents');
+    if (savedRecents) setRecentFrequencies(JSON.parse(savedRecents));
+
     const savedGenerated = localStorage.getItem('quantum_generated_freqs');
     if (savedGenerated) setGeneratedFrequencies(JSON.parse(savedGenerated));
 
@@ -209,6 +216,23 @@ const App: React.FC = () => {
     localStorage.setItem('quantum_favorites', JSON.stringify(newFavs));
   };
 
+  const addToRecents = (id: string) => {
+      // Avoid Guardian adding to history visually to keep it clean, or allow it? Let's allow only normal freqs
+      if (id === GUARDIAN_FREQUENCY.id) return;
+      
+      let newRecents = [id, ...recentFrequencies.filter(rId => rId !== id)];
+      // Limit to last 20
+      if (newRecents.length > 20) newRecents = newRecents.slice(0, 20);
+      
+      setRecentFrequencies(newRecents);
+      localStorage.setItem('quantum_recents', JSON.stringify(newRecents));
+  };
+
+  const clearRecents = () => {
+      setRecentFrequencies([]);
+      localStorage.setItem('quantum_recents', JSON.stringify([]));
+  };
+
   const handleDownload = async (e: React.MouseEvent, freq: Frequency) => {
     e.stopPropagation();
     setIsDownloading(freq.id);
@@ -254,12 +278,27 @@ const App: React.FC = () => {
        if (freq && !activeFrequencies.includes(id)) {
           audioEngine.playFrequency(freq.id, freq.hz);
           setActiveFrequencies(prev => [...prev, freq.id]);
+          addToRecents(freq.id);
        }
     });
     setIsSelectionMode(false);
   };
 
   const performDelete = (idsToDelete: string[]) => {
+      // If in RECENTES mode, we just remove from history, NOT delete the freq
+      if (selectedCategory === 'RECENTES') {
+          const newRecents = recentFrequencies.filter(id => !idsToDelete.includes(id));
+          setRecentFrequencies(newRecents);
+          localStorage.setItem('quantum_recents', JSON.stringify(newRecents));
+          
+          setSelectedItems(new Set());
+          setSingleDeleteId(null);
+          setShowDeleteConfirm(false);
+          if (selectedItems.size === 0) setIsSelectionMode(false);
+          return;
+      }
+
+      // Normal Deletion Logic (Hiding from app)
       const generatedIds = generatedFrequencies.map(g => g.id);
       const toRemoveFromGenerated = idsToDelete.filter(id => generatedIds.includes(id));
       const toAddToBlacklist = idsToDelete.filter(id => !generatedIds.includes(id)); 
@@ -314,6 +353,10 @@ const App: React.FC = () => {
           result = visibleFrequencies;
       } else if (selectedCategory === 'FAVORITOS') {
           result = visibleFrequencies.filter(f => favorites.includes(f.id));
+      } else if (selectedCategory === 'RECENTES') {
+          // Filter by recents list and SORT by recents order
+          result = visibleFrequencies.filter(f => recentFrequencies.includes(f.id));
+          result.sort((a, b) => recentFrequencies.indexOf(a.id) - recentFrequencies.indexOf(b.id));
       } else if (selectedCategory === 'ATIVOS') {
           result = visibleFrequencies.filter(f => activeFrequencies.includes(f.id));
       } else {
@@ -325,7 +368,7 @@ const App: React.FC = () => {
           const search = filterTerm.toLowerCase();
           return f.name.toLowerCase().includes(search) || f.description.toLowerCase().includes(search);
       });
-  }, [allFrequencies, deletedFreqIds, selectedCategory, favorites, activeFrequencies, filterTerm]);
+  }, [allFrequencies, deletedFreqIds, selectedCategory, favorites, activeFrequencies, recentFrequencies, filterTerm]);
 
 
   // Guardian Logic
@@ -363,19 +406,16 @@ const App: React.FC = () => {
     }
   }, [activeFrequencies, guardianEnabledByUser, isPlaying, hasStarted, allFrequencies, guardianActive]);
 
-  // Conflict Detection (SMARTER & FASTER)
+  // Conflict Detection
   useEffect(() => {
-    // 1. Clear any existing timeout and hide message immediately when activeFrequencies changes
     if (conflictTimeoutRef.current) {
         clearTimeout(conflictTimeoutRef.current);
         conflictTimeoutRef.current = null;
     }
-    // Only clear visual message if it was a warning (keep success messages)
     setNetworkMsg(prev => prev.type === 'warning' ? { ...prev, show: false } : prev);
 
     if (activeFrequencies.length < 2) return;
 
-    // 2. Run check
     const activeObjs = activeFrequencies.map(id => {
         if (id === REACTOR_FREQUENCY.id) return { category: FrequencyCategory.HYPER_MATRIX }; 
         return allFrequencies.find(f => f.id === id);
@@ -384,15 +424,13 @@ const App: React.FC = () => {
     const hasSleepOrRelax = activeObjs.some(f => f && (f.category === FrequencyCategory.SLEEP));
     const hasHighEnergy = activeObjs.some(f => f && (f.category === FrequencyCategory.HYPER_MATRIX || f.category === FrequencyCategory.PERFORMANCE));
     
-    // 3. Show warning if conflict exists (with shorter duration)
     if (hasSleepOrRelax && hasHighEnergy) {
-        // Small delay to ensure the "clearing" happens first visually if needed
         setTimeout(() => {
             setNetworkMsg({ show: true, msg: 'Conflito Energético: Relaxamento + Alta Atividade.', type: 'warning' });
             
             conflictTimeoutRef.current = setTimeout(() => {
                 setNetworkMsg(prev => ({...prev, show: false}));
-            }, 3000); // Reduced to 3s for faster users
+            }, 3000); 
         }, 50);
     }
   }, [activeFrequencies, allFrequencies]);
@@ -402,18 +440,12 @@ const App: React.FC = () => {
     audioEngine.init();
     audioEngine.enableBackgroundMode();
 
-    // Sequence for transition
     setTimeout(() => setTransitionStep(1), 500); // "Initializing"
     setTimeout(() => setTransitionStep(2), 1500); // "Tuning"
     setTimeout(() => {
         setHasStarted(true);
         setIsTransitioning(false);
-    }, 2500); // Extended slightly to allow animation to feel complete
-  };
-
-  const handleStart = () => {
-    // Legacy support if needed, but handleEnterApp is main
-    handleEnterApp();
+    }, 2500); 
   };
 
   const handleBackToStart = () => {
@@ -446,7 +478,6 @@ const App: React.FC = () => {
         toggleSelection(freq.id);
         return;
     }
-    // Force clear warnings immediately on click
     setNetworkMsg(prev => prev.type === 'warning' ? { ...prev, show: false } : prev);
 
     if (activeFrequencies.includes(freq.id)) {
@@ -455,6 +486,7 @@ const App: React.FC = () => {
     } else {
       audioEngine.playFrequency(freq.id, freq.hz);
       setActiveFrequencies(prev => [...prev, freq.id]);
+      addToRecents(freq.id);
     }
   };
 
@@ -490,6 +522,7 @@ const App: React.FC = () => {
         if (!isMatrix) setSelectedCategory('All'); 
         else setSelectedCategory(FrequencyCategory.HYPER_MATRIX);
         setLastGeneratedId(newFrequencies[0].id);
+        addToRecents(newFrequencies[0].id); // Auto add to recents
     }
   };
 
@@ -613,7 +646,7 @@ const App: React.FC = () => {
   // --- RENDER: LANDING PAGE & TRANSITION ---
   if (!hasStarted) {
     return (
-      <div className="h-screen w-full flex flex-col items-center p-4 relative overflow-hidden bg-[#020617] text-center">
+      <div className="h-screen w-full flex flex-col items-center justify-center p-4 relative overflow-hidden bg-[#020617] text-center">
         {/* BACKGROUND */}
         <div className="absolute inset-0 bg-[#020617]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.05),transparent_70%)] animate-pulse" style={{ animationDuration: '6s' }}></div>
@@ -641,14 +674,14 @@ const App: React.FC = () => {
                  </div>
              </div>
         ) : (
-             <div className="relative z-10 flex flex-col items-center w-full max-w-md h-full justify-evenly py-6 animate-fade-in-up">
+             <div className="relative z-10 flex flex-col items-center w-full max-w-md animate-fade-in-up">
                 
-                {/* Visualizer smaller on landing to fit screens */}
-                <div className="scale-75 h-[280px] flex items-center justify-center">
+                {/* Visualizer - Organized Layout */}
+                <div className="scale-75 h-[280px] flex items-center justify-center mb-2">
                    <Visualizer isActive={false} forceAnimate={true} speedMultiplier={0.3} breathDuration="10s" />
                 </div>
 
-                <div className="flex flex-col items-center gap-2">
+                <div className="flex flex-col items-center gap-1 mb-6">
                     <h1 className="text-4xl md:text-5xl font-orbitron font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-cyan-100 to-slate-100 glow-text-cyan">
                     RESSAUREA
                     </h1>
@@ -658,17 +691,17 @@ const App: React.FC = () => {
                     </p>
                 </div>
 
-                {/* NEW LANDING TEXT - Enhanced readability */}
-                <div className="space-y-3 max-w-sm mx-auto">
-                    <p className="text-base text-slate-200 font-rajdhani leading-relaxed font-medium">
+                {/* TEXT BLOCK - Grouped tightly */}
+                <div className="space-y-2 max-w-sm mx-auto mb-8">
+                    <p className="text-base text-slate-200 font-rajdhani font-medium">
                         Acesse o <span className="text-cyan-300 font-bold glow-text-cyan">Campo de Potencial Infinito</span>.
                     </p>
-                    <p className="text-sm text-slate-400 font-light tracking-wide leading-relaxed">
+                    <p className="text-sm text-slate-400 font-light tracking-wide">
                         Harmonização quântica, proteção e expansão da consciência em um toque.
                     </p>
                 </div>
 
-                <div className="bg-slate-900/80 border border-cyan-500/20 px-6 py-3 rounded-xl max-w-xs w-full backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.05)]">
+                <div className="bg-slate-900/80 border border-cyan-500/20 px-6 py-3 rounded-xl max-w-xs w-full backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.05)] mb-8">
                     <div className="flex items-center justify-center gap-2 text-cyan-400 font-bold tracking-wider text-[10px] uppercase">
                         <ShieldCheck className="w-4 h-4" />
                         <span>BLINDAGEM VIBRACIONAL</span>
@@ -691,9 +724,11 @@ const App: React.FC = () => {
     );
   }
 
-  // Count active freqs for button highlight logic
-  const activeCount = activeFrequencies.filter(id => id !== REACTOR_FREQUENCY.id && id !== GUARDIAN_FREQUENCY.id && id !== UPLIFT_FREQUENCY.id).length;
-  // Determine if Active button should be highlighted (selected or not, but showing activity)
+  // Count active freqs (Normal + Guardian if enabled)
+  let activeCount = activeFrequencies.filter(id => id !== REACTOR_FREQUENCY.id && id !== GUARDIAN_FREQUENCY.id && id !== UPLIFT_FREQUENCY.id).length;
+  // User asked for Guardian to be counted in the badge visually
+  if (guardianActive) activeCount += 1;
+
   const isAtivosHighlighted = activeCount > 0;
   const isAtivosSelected = selectedCategory === 'ATIVOS';
 
@@ -941,8 +976,8 @@ const App: React.FC = () => {
                   </div>
               </div>
 
-              {/* CATEGORY LIST - FIXED GAP (gap-5) */}
-              <div className="flex gap-5 overflow-x-auto pt-4 pb-2 px-8 -mx-8 category-scroll items-center w-[calc(100%+4rem)]">
+              {/* CATEGORY LIST - FIXED GAP (gap-4 or gap-[18px]) */}
+              <div className="flex gap-4 overflow-x-auto pt-4 pb-2 px-8 -mx-8 category-scroll items-center w-[calc(100%+4rem)]">
                   <div className="pl-4"></div>
                   <button
                       onClick={() => handleCategoryChange('All')}
@@ -968,6 +1003,18 @@ const App: React.FC = () => {
                   >
                       <Disc className={`w-4 h-4 ${activeCount > 0 ? 'animate-spin-slow text-amber-400' : ''}`} /> 
                       ATIVOS ({activeCount})
+                  </button>
+
+                  {/* RECENTES (HISTORY) CATEGORY */}
+                  <button
+                      onClick={() => handleCategoryChange('RECENTES')}
+                      className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center gap-2 min-h-[36px] min-w-[100px] hover:scale-105 ${
+                          selectedCategory === 'RECENTES' 
+                          ? 'bg-purple-900/30 text-purple-200 border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.3)] scale-105' 
+                          : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
+                      }`}
+                  >
+                      <History className="w-3 h-3 text-purple-400" /> RECENTES
                   </button>
 
                   <button
@@ -1023,6 +1070,18 @@ const App: React.FC = () => {
                     className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:border-cyan-500/50 focus:bg-slate-900 transition-all placeholder-slate-600"
                   />
               </div>
+
+              {/* RECENTS HEADER ACTIONS */}
+              {selectedCategory === 'RECENTES' && recentFrequencies.length > 0 && !isSelectionMode && (
+                  <div className="flex justify-end mb-2">
+                       <button 
+                           onClick={clearRecents}
+                           className="flex items-center gap-2 text-[10px] font-bold text-slate-500 hover:text-red-400 bg-transparent hover:bg-slate-900 px-3 py-1 rounded-full border border-transparent hover:border-slate-700 transition-all"
+                       >
+                           <Eraser className="w-3 h-3" /> Limpar Histórico
+                       </button>
+                  </div>
+              )}
 
               <div className="flex justify-end h-10 items-center">
                    {!isSelectionMode ? (
@@ -1109,6 +1168,11 @@ const App: React.FC = () => {
                         <Volume2 className="w-12 h-12 mx-auto mb-4 opacity-20" />
                         <p>Nenhuma frequência tocando no momento.</p>
                       </>
+                  ) : selectedCategory === 'RECENTES' ? (
+                      <>
+                        <History className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                        <p>Seu histórico está vazio.</p>
+                      </>
                   ) : (
                       <>
                         <WifiOff className="w-12 h-12 mx-auto mb-4 opacity-20" />
@@ -1161,7 +1225,7 @@ const App: React.FC = () => {
                             <button 
                                 onClick={() => setShowDeleteConfirm(true)}
                                 className="p-2.5 text-red-400 hover:bg-red-900/20 rounded-full transition-all"
-                                title="Apagar Selecionados"
+                                title={selectedCategory === 'RECENTES' ? "Remover do Histórico" : "Apagar Selecionados"}
                             >
                                 <Trash2 className="w-5 h-5" />
                             </button>
@@ -1256,14 +1320,18 @@ const App: React.FC = () => {
       {showDeleteConfirm && (
           <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
               <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 relative shadow-2xl">
-                  <h3 className="text-xl font-bold text-white mb-2 text-center">Apagar Frequências?</h3>
+                  <h3 className="text-xl font-bold text-white mb-2 text-center">
+                      {selectedCategory === 'RECENTES' ? "Limpar do Histórico?" : "Apagar Frequências?"}
+                  </h3>
                   <p className="text-slate-400 text-center text-sm mb-6">
                       {singleDeleteId 
-                        ? <span>Deseja apagar esta frequência permanentemente?</span>
-                        : <span>Você selecionou <span className="text-red-400 font-bold">{selectedItems.size}</span> itens para exclusão.</span>
+                        ? (selectedCategory === 'RECENTES' ? <span>Remover esta frequência dos recentes?</span> : <span>Deseja apagar esta frequência permanentemente?</span>)
+                        : (selectedCategory === 'RECENTES' ? <span>Remover <span className="text-red-400 font-bold">{selectedItems.size}</span> itens do histórico?</span> : <span>Você selecionou <span className="text-red-400 font-bold">{selectedItems.size}</span> itens para exclusão.</span>)
                       }
                       <br/>
-                      <span className="text-xs mt-2 block opacity-70">Elas serão removidas da sua lista visual.</span>
+                      <span className="text-xs mt-2 block opacity-70">
+                          {selectedCategory === 'RECENTES' ? "A frequência continuará existindo no app." : "Elas serão removidas da sua lista visual."}
+                      </span>
                   </p>
                   <div className="flex gap-3">
                       <button 
@@ -1276,7 +1344,7 @@ const App: React.FC = () => {
                           onClick={handleDeleteSelected}
                           className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-500 transition-colors shadow-lg shadow-red-900/20"
                       >
-                          Apagar
+                          {selectedCategory === 'RECENTES' ? "Remover" : "Apagar"}
                       </button>
                   </div>
               </div>
@@ -1509,7 +1577,7 @@ const App: React.FC = () => {
                             setShowDeleteConfirm(true); 
                         }}
                         className="p-2 rounded-full text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition-colors"
-                        title="Apagar Frequência"
+                        title={selectedCategory === 'RECENTES' ? "Remover do Histórico" : "Apagar Frequência"}
                     >
                         <Trash2 className="w-4 h-4" />
                     </button>
