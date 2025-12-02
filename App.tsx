@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Volume2, 
@@ -6,7 +7,7 @@ import {
   Fingerprint, 
   X, 
   Activity, 
-  ArrowRight, 
+  CloudDownload, 
   LogOut, 
   Heart, 
   Play, 
@@ -14,29 +15,43 @@ import {
   ShieldCheck, 
   Infinity, 
   HelpCircle,
-  Network,
-  WifiOff,
-  Database,
-  Sparkles,
-  Atom,
   Power,
   RefreshCcw,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Search,
+  Atom,
+  Download,
+  Wifi,
+  Menu,
+  Settings,
+  FolderOpen,
+  AlertTriangle,
+  WifiOff,
+  Globe,
+  Trash2,
+  Database,
+  Edit3,
+  CheckSquare,
+  Cloud,
+  Cpu,
+  Layers,
+  MousePointer2
 } from 'lucide-react';
-import { PRESET_FREQUENCIES, CATEGORIES, GUARDIAN_FREQUENCY, REACTOR_FREQUENCY } from './constants';
+import { PRESET_FREQUENCIES, CATEGORIES, GUARDIAN_FREQUENCY, REACTOR_FREQUENCY, REACTOR_MODES, UPLIFT_FREQUENCY } from './constants';
 import { Frequency, FrequencyCategory } from './types';
 import { audioEngine } from './services/audioEngine';
 import { Visualizer } from './components/Visualizer';
 import { generateFrequenciesFromIntent } from './services/geminiService';
 
 // Tiny 1x1 black video loop base64. Playing this forces mobile OS to keep screen ON.
-const WAKE_LOCK_VIDEO = "data:video/mp4;base64,AAAAHGZ0eXBpc29tAAACAGlzb21pc28yYXZjMQAAAAhmcmVlAAAGF21kYXQAAAKABaaAgAABAAEAAAB5gAAAAAAAAAAAAAAODW1vb3YAAABsbXZoAAAAAMNs6kHDbOpBAAAAAQAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAABBpb2RzAAAAABQAAAABgAAAAQAAAAAAAAAAAAAAAQAAABJ0cmFrAAAAXHRraGQAAAAdw2zqQcNs6kEAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAABkbWRpYQAAACBtZGhkAAAAAMNs6kHDbOpBAAAAAQAAAAEAAAAAAAARaGRscgAAAAAAAAAAdmlkZQAAAAAAAAAAAAAAAAAAAAB2bWluaGQAAAAAHZtZGhkAAAAAMNs6kHDbOpBAAAAAQAAAAEAAAAAAAARaGRscgAAAAAAAAAAZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAEcdHN0YgAAAFhzdHNkAAAAAAAAAAEAAABcaHZjMQAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAEAAQABAAAAAAEgAAACAAFIcHNhbmZwAAAAAAAAAAAAAAQAAQAAAB9ocGRjAAAAAAAAAAAAAAFAAAAAAQAAAAEAABkAAAB4c3R0cwAAAAAAAAABAAAAAQAAAAEAAAAUc3RzeHAAAAABAAAAAQAAAAEAAAAQc3RzYwAAAAAAAAABAAAAAQAAAAEAAAAcc3RzegAAAAAAAAAAAAAAAQAAAAEAAAAUc3RjbwAAAAAAAAABAAAAAAAAYXVkdGEAAAA1bWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcgAAAAAAAAAAAAAAAAAAAAAIL2lsb3QAAAAA";
+const WAKE_LOCK_VIDEO = "data:video/mp4;base64,AAAAHGZ0eXBpc29tAAACAGlzb21pc28yYXZjMQAAAAhmcmVlAAAGF21kYXQAAAKABaaAgAABAAEAAAB5gAAAAAAAAAAAAAAODW1vb3YAAABsbXZoAAAAAMNs6kHDbOpBAAAAAQAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAABBpb2RzAAAAABQAAAABgAAAAQAAAAAAAAAAAAAAAQAAABJ0cmFrAAAAXHRraGQAAAAdw2zqQcNs6kHDbOpBAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAABkbWRpYQAAACBtZGhkAAAAAMNs6kHDbOpBAAAAAQAAAAEAAAAAAAARaGRscgAAAAAAAAAAdmlkZQAAAAAAAAAAAAAAAAAAAAB2bWluaGQAAAAAHZtZGhkAAAAAMNs6kHDbOpBAAAAAQAAAAEAAAAAAAARaGRscgAAAAAAAAAAZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAEcdHN0YgAAAFhzdHNkAAAAAAAAAAEAAABcaHZjMQAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAEAAQABAAAAAAEgAAACAAFIcHNhbmZwAAAAAAAAAAAAAAQAAQAAAB9ocGRjAAAAAAAAAAAAAAFAAAAAAQAAAAEAABkAAAB4c3R0cwAAAAAAAAABAAAAAQAAAAEAAAAUc3RzeHAAAAABAAAAAQAAAAEAAAAQc3RzYwAAAAAAAAABAAAAAQAAAAEAAAAcc3RzegAAAAAAAAAAAAAAAQAAAAEAAAAUc3RjbwAAAAAAAAABAAAAAAAAYXVkdGEAAAA1bWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcgAAAAAAAAAAAAAAAAAAAAAIL2lsb3QAAAAA";
 
 const App: React.FC = () => {
   const [activeFrequencies, setActiveFrequencies] = useState<string[]>([]);
   const [isScalarMode, setIsScalarMode] = useState(false); 
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterTerm, setFilterTerm] = useState(''); 
   const [searchMode, setSearchMode] = useState<'INTENT' | 'MATRIX'>('INTENT');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedFrequencies, setGeneratedFrequencies] = useState<Frequency[]>([]);
@@ -46,11 +61,28 @@ const App: React.FC = () => {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const [isAudible, setIsAudible] = useState(false); // Default is subliminal
+  const [isAudible, setIsAudible] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  
+  // Selection / Delete Mode
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [singleDeleteId, setSingleDeleteId] = useState<string | null>(null); // For individual delete
+
+  // Settings & Menu
+  const [showMenu, setShowMenu] = useState(false);
+  const [downloadMode, setDownloadMode] = useState<'auto' | 'ask'>('auto');
+
+  // Reactor Mode State
+  const [selectedReactorMode, setSelectedReactorMode] = useState(REACTOR_MODES[0]);
+  const [showReactorUI, setShowReactorUI] = useState(false); // Controls visibility of UI in Reactor
   
   // Feedback state
   const [lastGeneratedId, setLastGeneratedId] = useState<string | null>(null);
   const [showSuccessMsg, setShowSuccessMsg] = useState(false);
+  const [networkMsg, setNetworkMsg] = useState<{show: boolean, msg: string, type: 'success' | 'warning'}>({show: false, msg: '', type: 'success'});
+  const [isDownloading, setIsDownloading] = useState<string | null>(null);
 
   // Guardian Toggle State
   const [guardianEnabledByUser, setGuardianEnabledByUser] = useState(true);
@@ -68,16 +100,21 @@ const App: React.FC = () => {
   
   // Modals
   const [showSigns, setShowSigns] = useState(false);
-  const [showTrustModal, setShowTrustModal] = useState(false);
   const [showScalarHelp, setShowScalarHelp] = useState(false);
   const [showReactorHelp, setShowReactorHelp] = useState(false);
+  const [showTrustModal, setShowTrustModal] = useState(false);
 
   // Refs
   const listTopRef = useRef<HTMLDivElement>(null);
   const wakeLockRef = useRef<any>(null);
-  const videoRef = useRef<HTMLVideoElement>(null); // Hack for screen keep awake
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const lastTapRef = useRef<number>(0); // For double tap detection
 
   useEffect(() => {
+    // Detect touch device for UX adjustments
+    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
     const savedFavs = localStorage.getItem('quantum_favorites');
     if (savedFavs) {
       setFavorites(JSON.parse(savedFavs));
@@ -89,12 +126,33 @@ const App: React.FC = () => {
       setCalibrationStep('idle'); 
     }
 
+    const savedGenerated = localStorage.getItem('quantum_generated_freqs');
+    if (savedGenerated) {
+        setGeneratedFrequencies(JSON.parse(savedGenerated));
+    }
+
+    const savedDlMode = localStorage.getItem('quantum_download_mode');
+    if (savedDlMode === 'ask' || savedDlMode === 'auto') {
+        setDownloadMode(savedDlMode);
+    }
+
     audioEngine.setCallback((enginePlaying) => {
       setIsPlaying(enginePlaying);
     });
 
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
+    // Network Listeners for Seamless Transition
+    const handleOnline = () => {
+        setIsOffline(false);
+        setNetworkMsg({ show: true, msg: 'Reconectado à Rede Quântica.', type: 'success' });
+        setTimeout(() => setNetworkMsg(prev => ({...prev, show: false})), 4000);
+    };
+    
+    const handleOffline = () => {
+        setIsOffline(true);
+        setNetworkMsg({ show: true, msg: 'Modo Offline Ativo. Frequências Locais Habilitadas.', type: 'warning' });
+        setTimeout(() => setNetworkMsg(prev => ({...prev, show: false})), 4000);
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
@@ -107,12 +165,11 @@ const App: React.FC = () => {
   // Determine if Reactor is Active for UI Effects
   const isReactorActive = activeFrequencies.includes(REACTOR_FREQUENCY.id);
 
-  // Wake Lock Logic (Video Hack)
+  // Wake Lock Logic
   useEffect(() => {
     if (isReactorActive) {
         if (videoRef.current) {
             videoRef.current.play().catch(e => {
-                 // User interaction requirement might block this initially
                  console.log("WakeLock deferred");
             });
         }
@@ -121,12 +178,17 @@ const App: React.FC = () => {
                 .then((lock: any) => { wakeLockRef.current = lock; })
                 .catch((e: any) => console.log('WakeLock API failed', e));
         }
+        // Hint for double tap
+        setNetworkMsg({ show: true, msg: 'Toque duas vezes para exibir controles', type: 'success' });
+        setTimeout(() => setNetworkMsg(prev => ({...prev, show: false})), 3000);
+
     } else {
         if (videoRef.current) videoRef.current.pause();
         if (wakeLockRef.current) {
             wakeLockRef.current.release().catch(() => {});
             wakeLockRef.current = null;
         }
+        setShowReactorUI(false); // Reset UI state
     }
   }, [isReactorActive]);
 
@@ -162,19 +224,77 @@ const App: React.FC = () => {
     localStorage.setItem('quantum_favorites', JSON.stringify(newFavs));
   };
 
+  const handleDownload = async (e: React.MouseEvent, freq: Frequency) => {
+    e.stopPropagation();
+    setIsDownloading(freq.id);
+    await audioEngine.exportFrequencyToFile(freq.hz, freq.name, downloadMode);
+    setIsDownloading(null);
+  };
+
+  const changeDownloadMode = (mode: 'auto' | 'ask') => {
+      setDownloadMode(mode);
+      localStorage.setItem('quantum_download_mode', mode);
+  };
+
+  // --- DELETE / MANAGE LOGIC ---
+  const toggleSelection = (id: string) => {
+      const newSet = new Set(selectedItems);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      setSelectedItems(newSet);
+  };
+
+  const handleDeleteSelected = () => {
+      // Logic for batch delete
+      if (selectedItems.size > 0) {
+        const newGenerated = generatedFrequencies.filter(f => !selectedItems.has(f.id));
+        setGeneratedFrequencies(newGenerated);
+        localStorage.setItem('quantum_generated_freqs', JSON.stringify(newGenerated));
+        
+        // Stop deleted ones if playing
+        selectedItems.forEach(id => {
+            if (activeFrequencies.includes(id)) {
+                audioEngine.stopFrequency(id);
+            }
+        });
+        setActiveFrequencies(prev => prev.filter(id => !selectedItems.has(id)));
+        setSelectedItems(new Set());
+        setIsSelectionMode(false);
+      } 
+      // Logic for single delete
+      else if (singleDeleteId) {
+          const newGenerated = generatedFrequencies.filter(f => f.id !== singleDeleteId);
+          setGeneratedFrequencies(newGenerated);
+          localStorage.setItem('quantum_generated_freqs', JSON.stringify(newGenerated));
+          if (activeFrequencies.includes(singleDeleteId)) {
+              audioEngine.stopFrequency(singleDeleteId);
+              setActiveFrequencies(prev => prev.filter(id => id !== singleDeleteId));
+          }
+          setSingleDeleteId(null);
+      }
+
+      setShowDeleteConfirm(false);
+  };
+
+  // --- FREQUENCY LIST FILTERING ---
   const allFrequencies = [
     ...(personalFrequency ? [personalFrequency] : []),
     ...generatedFrequencies, 
     ...PRESET_FREQUENCIES
   ];
 
-  const filteredFrequencies = selectedCategory === 'All' 
+  const filteredFrequencies = (selectedCategory === 'All' 
     ? allFrequencies 
     : selectedCategory === 'FAVORITOS'
       ? allFrequencies.filter(f => favorites.includes(f.id))
-      : allFrequencies.filter(f => f.category === selectedCategory);
+      : allFrequencies.filter(f => f.category === selectedCategory))
+      .filter(f => {
+          if (!filterTerm) return true;
+          const search = filterTerm.toLowerCase();
+          return f.name.toLowerCase().includes(search) || f.description.toLowerCase().includes(search);
+      });
 
-  // Guardian Logic
+  // Guardian Logic + Subliminal Uplift Mix
   useEffect(() => {
     if (!hasStarted) return;
 
@@ -195,16 +315,41 @@ const App: React.FC = () => {
     if (guardianEnabledByUser && !shouldPauseGuardian && isPlaying) {
       if (!guardianActive) {
         audioEngine.playFrequency(GUARDIAN_FREQUENCY.id, GUARDIAN_FREQUENCY.hz);
+        setTimeout(() => {
+            audioEngine.playFrequency(UPLIFT_FREQUENCY.id, UPLIFT_FREQUENCY.hz);
+        }, 100);
         setGuardianActive(true);
       }
     } else {
       if (guardianActive) {
         audioEngine.stopFrequency(GUARDIAN_FREQUENCY.id);
+        audioEngine.stopFrequency(UPLIFT_FREQUENCY.id);
         setGuardianActive(false);
       }
     }
   }, [activeFrequencies, guardianEnabledByUser, isPlaying, hasStarted, allFrequencies, guardianActive]);
 
+  // CONFLICT DETECTION
+  useEffect(() => {
+    if (activeFrequencies.length < 2) return;
+
+    const activeObjs = activeFrequencies.map(id => {
+        if (id === REACTOR_FREQUENCY.id) return { category: FrequencyCategory.HYPER_MATRIX }; 
+        return allFrequencies.find(f => f.id === id);
+    }).filter(Boolean);
+
+    const hasSleepOrRelax = activeObjs.some(f => f && (f.category === FrequencyCategory.SLEEP));
+    const hasHighEnergy = activeObjs.some(f => f && (f.category === FrequencyCategory.HYPER_MATRIX || f.category === FrequencyCategory.PERFORMANCE));
+
+    if (hasSleepOrRelax && hasHighEnergy) {
+        setNetworkMsg({ 
+            show: true, 
+            msg: 'Conflito Energético: Mistura de Relaxamento e Alta Atividade detectada.', 
+            type: 'warning' 
+        });
+        setTimeout(() => setNetworkMsg(prev => ({...prev, show: false})), 5000);
+    }
+  }, [activeFrequencies]);
 
   const handleStart = () => {
     audioEngine.init();
@@ -214,6 +359,7 @@ const App: React.FC = () => {
 
   const handleBackToStart = () => {
     setHasStarted(false);
+    setShowMenu(false);
   };
 
   const togglePlayPauseGlobal = () => {
@@ -231,6 +377,15 @@ const App: React.FC = () => {
   };
 
   const toggleFrequency = (freq: Frequency) => {
+    // Only allow selection if the frequency is a generated one
+    if (isSelectionMode) {
+        const isGenerated = freq.id.startsWith('custom_') || freq.id.startsWith('offline_');
+        if (isGenerated) {
+            toggleSelection(freq.id);
+        }
+        return;
+    }
+
     if (activeFrequencies.includes(freq.id)) {
       audioEngine.stopFrequency(freq.id);
       setActiveFrequencies(prev => prev.filter(id => id !== freq.id));
@@ -246,13 +401,29 @@ const App: React.FC = () => {
     audioEngine.enableScalarMode(newState);
   };
 
+  // Handle Double Tap for Reactor UI
+  const handleDoubleTap = () => {
+      const now = Date.now();
+      const DOUBLE_TAP_DELAY = 300;
+      if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+          // It's a double tap
+          setShowReactorUI(prev => !prev);
+      }
+      lastTapRef.current = now;
+  };
+
   const handleGenerate = async () => {
     if (!searchTerm.trim()) return;
     setIsGenerating(true);
     const isMatrix = searchMode === 'MATRIX';
     const cat = isMatrix ? FrequencyCategory.HYPER_MATRIX : FrequencyCategory.CUSTOM;
     const newFrequencies = await generateFrequenciesFromIntent(searchTerm, cat);
-    setGeneratedFrequencies(prev => [...newFrequencies, ...prev]);
+    
+    // Merge and save
+    const updatedGenerated = [...newFrequencies, ...generatedFrequencies];
+    setGeneratedFrequencies(updatedGenerated);
+    localStorage.setItem('quantum_generated_freqs', JSON.stringify(updatedGenerated));
+
     setIsGenerating(false);
     setSearchTerm('');
     if (newFrequencies.length > 0) {
@@ -313,6 +484,8 @@ const App: React.FC = () => {
       setScanProgress(0);
       setCalibrationStep('idle');
       setIsScanning(false);
+      setPersonalFrequency(null); 
+      localStorage.removeItem('quantum_personal_freq'); 
   };
 
   const getBiometricAdvice = (hz: number) => {
@@ -337,8 +510,8 @@ const App: React.FC = () => {
     }
   };
 
-  const getActiveHzAverage = () => {
-      if (activeFrequencies.length === 0) return 0;
+  const getActiveHzStats = () => {
+      if (activeFrequencies.length === 0) return { avg: 0, breath: '6s' };
       let total = 0;
       let count = 0;
       activeFrequencies.forEach(id => {
@@ -349,14 +522,22 @@ const App: React.FC = () => {
           }
       });
       if (activeFrequencies.includes(REACTOR_FREQUENCY.id)) {
-          total += REACTOR_FREQUENCY.hz;
+          total += selectedReactorMode.hz; 
           count++;
       }
-      if (count === 0) return 0;
-      return total / count;
+      if (count === 0) return { avg: 0, breath: '6s' };
+      
+      const avg = total / count;
+      let breath = '6s';
+      if (avgHz < 10) breath = '10s'; // Slow breath for sleep/calm
+      else if (avgHz > 35) breath = '2s'; // Fast breath for high energy
+      else breath = '5s'; // Normal
+
+      return { avg, breath };
   };
 
-  const avgHz = getActiveHzAverage();
+  const stats = getActiveHzStats();
+  const avgHz = stats.avg;
   let speedMult = 0.5;
   if (avgHz > 0) {
       if (avgHz < 10) speedMult = 0.2;
@@ -375,6 +556,16 @@ const App: React.FC = () => {
           icon: 'text-slate-600',
           gradient: 'from-slate-100 to-slate-300',
           shadow: 'shadow-[0_0_15px_rgba(203,213,225,0.4)]'
+        };
+      case FrequencyCategory.SLEEP:
+        return {
+          bg: 'from-indigo-950/60 to-indigo-900/30',
+          text: 'text-indigo-100',
+          tabText: 'text-white',
+          border: 'border-indigo-500/30',
+          icon: 'text-indigo-400',
+          gradient: 'from-indigo-600 to-violet-500',
+          shadow: 'shadow-[0_0_15px_rgba(99,102,241,0.2)]'
         };
       case FrequencyCategory.HYPER_MATRIX:
         return {
@@ -432,15 +623,20 @@ const App: React.FC = () => {
     }
   };
 
+  const getReactorStrobeDuration = () => {
+    if (selectedReactorMode.id === 'sleep_core') return '4s';
+    if (selectedReactorMode.id === 'lucid_core') return '0.5s';
+    return '0.08s'; 
+  };
+
   if (!hasStarted) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#020617]">
         <div className="absolute inset-0 bg-[#020617]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.1),transparent_70%)] animate-pulse" style={{ animationDuration: '8s' }}></div>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.05),transparent_70%)] animate-pulse" style={{ animationDuration: '6s' }}></div>
         </div>
 
-        {/* WELCOME SCREEN CONTENT */}
-        <div className="relative z-10 flex flex-col items-center text-center max-w-md w-full -mt-16">
+        <div className="relative z-10 flex flex-col items-center text-center max-w-md w-full -mt-16 transition-opacity duration-1000 ease-in-out">
           <div className="mb-12 scale-125">
              <Visualizer isActive={false} />
           </div>
@@ -449,9 +645,20 @@ const App: React.FC = () => {
             RESSÁUREA
           </h1>
           
-          <p className="text-cyan-200/60 text-lg mb-12 font-light tracking-[0.2em] uppercase">
+          <p className="text-cyan-200/60 text-lg mb-8 font-light tracking-[0.2em] uppercase">
             Sintonia de Alta Frequência
           </p>
+
+          <div className="bg-slate-900/60 border border-cyan-500/20 p-6 rounded-2xl max-w-sm w-full mb-10 backdrop-blur-md shadow-[0_0_50px_rgba(6,182,212,0.05)] transform hover:scale-105 transition-all duration-500">
+              <div className="flex items-center justify-center gap-2 text-cyan-400 mb-4 font-bold tracking-wider text-xs uppercase">
+                  <ShieldCheck className="w-5 h-5" />
+                  <span>BLINDAGEM VIBRACIONAL</span>
+              </div>
+              <p className="text-slate-300 text-sm leading-relaxed antialiased tracking-wide">
+                  Você está entrando em um espaço de <strong>proteção energética avançada</strong> e equilíbrio constante. <br/>
+                  Ao ativar a ressonância, uma cúpula de harmonização envolverá seu campo, garantindo paz e segurança total.
+              </p>
+          </div>
 
           <button
             onClick={handleStart}
@@ -460,8 +667,7 @@ const App: React.FC = () => {
             <div className="absolute inset-0 border border-cyan-500/30 rounded-full"></div>
             <div className="absolute inset-0 bg-cyan-500/10 blur-xl group-hover:bg-cyan-500/20 transition-all duration-500"></div>
             <div className="relative flex items-center gap-3 text-cyan-100 font-orbitron tracking-widest text-lg">
-              <Fingerprint className="w-6 h-6 animate-pulse" />
-              <span>ENTRAR EM RESSONÂNCIA</span>
+              <span>ENTRAR</span>
             </div>
           </button>
         </div>
@@ -469,20 +675,9 @@ const App: React.FC = () => {
     );
   }
 
-  // --- MAIN APP LAYOUT ---
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200 selection:bg-cyan-500/30 relative">
-      <style>{`
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in-up {
-            animation: fadeInUp 0.5s ease-out forwards;
-        }
-       `}</style>
+    <div className="min-h-screen bg-[#020617] text-slate-200 selection:bg-cyan-500/30 relative overflow-hidden">
       
-      {/* PERSISTENT HIDDEN VIDEO FOR WAKE LOCK */}
       <video 
          ref={videoRef}
          loop 
@@ -492,27 +687,63 @@ const App: React.FC = () => {
          src={WAKE_LOCK_VIDEO}
       />
 
-      {/* BACKGROUND VISUALIZER */}
       <div className="fixed inset-0 z-0 pointer-events-none flex items-center justify-center opacity-60">
-        <Visualizer isActive={isPlaying && activeFrequencies.length > 0} speedMultiplier={speedMult} />
+         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,215,0,0.02),transparent_60%)]"></div>
+         <Visualizer isActive={isPlaying && activeFrequencies.length > 0} speedMultiplier={speedMult} breathDuration={stats.breath} />
       </div>
 
-      {/* --- REACTOR MODE OVERLAY (FULL SCREEN) --- */}
       {isReactorActive && (
-          <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center overflow-hidden animate-fade-in-up transform-gpu">
-              {/* Strobe Effect Layer */}
-              <div className="absolute inset-0 bg-white animate-pulse" style={{ animationDuration: '0.08s', opacity: 0.15 }}></div>
+          <div 
+            className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center overflow-hidden transform-gpu group select-none"
+            onTouchStart={handleDoubleTap}
+            onDoubleClick={() => setShowReactorUI(prev => !prev)}
+          >
+              {/* IMMERSIVE MODE */}
+              
+              <div 
+                 className={`absolute inset-0 bg-white ${selectedReactorMode.id === 'sleep_core' ? 'animate-pulse' : 'animate-pulse'}`} 
+                 style={{ 
+                     animationDuration: getReactorStrobeDuration(), 
+                     opacity: selectedReactorMode.id === 'sleep_core' ? 0.05 : 0.15 
+                 }}
+              ></div>
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/10 to-transparent"></div>
               
               <div className="relative z-10 flex flex-col items-center scale-150">
-                  <Visualizer isActive={true} speedMultiplier={4} />
+                  <Visualizer isActive={true} speedMultiplier={selectedReactorMode.id === 'sleep_core' ? 0.2 : 4} breathDuration={selectedReactorMode.id === 'sleep_core' ? '10s' : '1s'} />
               </div>
 
-              <div className="absolute bottom-12 left-0 right-0 z-10 text-center flex flex-col items-center pointer-events-auto">
+              {/* AUTO-HIDE CONTROLS CONTAINER - TOGGLED VIA DOUBLE TAP/CLICK */}
+              <div className={`absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center pb-16 pt-20 bg-gradient-to-t from-black via-black/80 to-transparent transition-opacity duration-500 touch-action-manipulation ${showReactorUI ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+                  <div className="flex items-center gap-2 mb-8 bg-slate-900/80 backdrop-blur rounded-full p-1 border border-slate-700">
+                      {REACTOR_MODES.map(mode => (
+                          <button
+                            key={mode.id}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedReactorMode(mode);
+                                audioEngine.stopFrequency(REACTOR_FREQUENCY.id);
+                                setTimeout(() => {
+                                    audioEngine.playFrequency(REACTOR_FREQUENCY.id, mode.hz);
+                                }, 50);
+                            }}
+                            className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
+                                selectedReactorMode.id === mode.id
+                                ? 'bg-orange-600 text-white shadow'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                              {mode.name}
+                          </button>
+                      ))}
+                  </div>
+
                   <h2 className="text-4xl font-orbitron font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-orange-400 to-red-500 mb-2">
-                      FUSÃO GAMMA
+                      FUSÃO REATOR
                   </h2>
-                  <p className="text-orange-200/60 text-sm tracking-[0.5em] font-light uppercase mb-8">Sincronizando Hemisférios</p>
+                  <p className="text-orange-200/60 text-sm tracking-[0.5em] font-light uppercase mb-8">
+                      {selectedReactorMode.description}
+                  </p>
 
                   <button
                       onClick={() => toggleFrequency(REACTOR_FREQUENCY)}
@@ -525,165 +756,190 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* FIXED HEADER */}
+      {/* HEADER */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#020617]/80 backdrop-blur-md border-b border-white/5 h-16 flex items-center px-4 justify-between">
          <div className="flex items-center gap-3">
-             <button onClick={handleBackToStart} className="p-2 text-slate-400 hover:text-white transition-colors">
-                <LogOut className="w-5 h-5" />
+             <button onClick={() => setShowMenu(true)} className="p-3 text-slate-400 hover:text-white transition-colors">
+                <Menu className="w-5 h-5" />
              </button>
              <h1 className="text-xl font-orbitron font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-cyan-200">
                RESSÁUREA
              </h1>
          </div>
 
-         <div className="flex items-center gap-3">
+         <div className="flex items-center gap-2">
+            {/* BIOMETRICS HEADER BUTTON - ADAPTED FOR PC */}
+            <button 
+                onClick={() => setShowCalibration(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-full text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all group"
+                title="Sintonizar Biometria"
+            >
+                <Fingerprint className="w-5 h-5 group-hover:text-cyan-400" />
+                <span className="hidden md:inline text-[10px] font-bold uppercase tracking-wider group-hover:text-cyan-400">BIO-SCAN</span>
+            </button>
+
             <button 
               onClick={() => setGuardianEnabledByUser(!guardianEnabledByUser)}
-              className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-all duration-300 ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-full transition-all duration-300 group ${
                 guardianEnabledByUser 
-                  ? 'bg-cyan-900/30 border-cyan-500/50 text-cyan-200 shadow-[0_0_10px_cyan]' 
-                  : 'bg-slate-900/50 border-slate-700 text-slate-500'
+                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]' 
+                  : 'text-slate-600'
               }`}
+              title={guardianEnabledByUser ? "Proteção Ativa" : "Proteção Inativa"}
             >
-              <ShieldCheck className="w-3 h-3" />
-              {guardianEnabledByUser ? 'ESCUDO ON' : 'ESCUDO OFF'}
-            </button>
-            
-            <button 
-               onClick={() => setShowTrustModal(true)}
-               className={`flex items-center gap-2 px-2 py-1 rounded-full text-[10px] font-bold tracking-widest border transition-all ${
-                 isOffline 
-                  ? 'bg-slate-900/80 border-slate-600 text-slate-400' 
-                  : 'bg-cyan-900/20 border-cyan-500/30 text-cyan-400'
-               }`}
-            >
-              <div className={`w-1.5 h-1.5 rounded-full ${isOffline ? 'bg-slate-500' : 'bg-cyan-400 animate-pulse'}`}></div>
-              {isOffline ? 'MODO OFFLINE' : 'MODO ONLINE'}
+              <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap hidden sm:inline-block">Proteção</span>
+              <ShieldCheck className={`w-6 h-6 flex-shrink-0 ${guardianEnabledByUser ? 'fill-cyan-500/20' : ''}`} />
             </button>
          </div>
       </header>
 
-      {/* FIXED FOOTER PLAYER */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#020617]/90 backdrop-blur-xl border-t border-white/5 p-4 z-50">
-         <div className="max-w-4xl mx-auto flex items-center justify-between">
+      {/* FOOTER PLAYER - COMPACT DESIGN */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#020617]/90 backdrop-blur-xl border-t border-cyan-500/10 h-16 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.8)] flex items-center">
+         <div className="w-full max-w-4xl mx-auto flex items-center justify-between px-6">
              
-             {/* Audible Test Toggle */}
+             {/* LEFT: VOLUME/SUBLIMINAL */}
              <button 
                onClick={toggleAudibleMode}
-               className="flex flex-col items-center gap-1 transition-colors hover:text-white group"
+               className="flex flex-col items-center justify-center gap-1 group w-16 flex-shrink-0"
              >
-                <div className={`p-2 rounded-full transition-all ${isAudible ? 'bg-cyan-500/20 text-cyan-400' : 'bg-slate-800 text-slate-500'}`}>
-                    {isAudible ? <Volume2 className="w-4 h-4" /> : <Volume1 className="w-4 h-4" />}
+                <div className={`p-1.5 rounded-full transition-all duration-300 ${isAudible ? 'text-cyan-400' : 'text-slate-500'}`}>
+                    {isAudible ? <Volume2 className="w-5 h-5" /> : <Volume1 className="w-5 h-5" />}
                 </div>
-                <span className={`text-[9px] uppercase tracking-wider ${isAudible ? 'Som Ativo' : 'Subliminar'}`}>
-                    {isAudible ? 'Som Ativo' : 'Subliminar'}
+                <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-500 group-hover:text-cyan-400 transition-colors whitespace-nowrap">
+                    {isAudible ? 'Audível' : 'Subliminar'}
                 </span>
              </button>
 
-             {/* Global Play/Pause */}
+             {/* CENTER: PLAY CONTROLS */}
              <div className="flex items-center gap-6">
                 <button 
                   onClick={() => audioEngine.stopAll()} 
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800 text-slate-400 hover:bg-red-900/30 hover:text-red-400 transition-all shadow-lg border border-slate-700 hover:border-red-500/30"
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-red-400 transition-all border border-transparent hover:border-red-500/30 hover:bg-red-900/10 flex-shrink-0"
                 >
-                    <Square className="w-4 h-4 fill-current" />
+                    <Square className="w-3 h-3 fill-current" />
                 </button>
                 
                 <button 
                   onClick={togglePlayPauseGlobal}
-                  className="w-16 h-16 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-[0_0_30px_rgba(6,182,212,0.4)] flex items-center justify-center hover:scale-105 transition-all border border-white/20"
+                  className="group relative w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 flex-shrink-0"
                 >
-                    {isPlaying ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current pl-1" />}
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-b from-cyan-400 to-blue-600 opacity-90 blur-sm group-hover:opacity-100 group-hover:blur-md transition-all animate-pulse duration-[3000ms]"></div>
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-b from-cyan-500 to-blue-600 shadow-inner border border-white/20"></div>
+                    <div className="relative z-10 text-white drop-shadow-md">
+                        {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current pl-0.5" />}
+                    </div>
                 </button>
              </div>
 
-             {/* Resonance Signs Button */}
+             {/* RIGHT: SIGNS */}
              <button 
                onClick={() => setShowSigns(true)}
-               className="flex flex-col items-center gap-1 text-slate-500 hover:text-cyan-400 transition-colors"
+               className="flex flex-col items-center justify-center gap-1 group w-16 flex-shrink-0"
              >
-                <div className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-all">
-                   <Activity className="w-4 h-4" />
+                <div className="p-1.5 text-slate-500 group-hover:text-cyan-400 transition-all duration-300">
+                   <Activity className="w-5 h-5" />
                 </div>
-                <span className="text-[9px] uppercase tracking-wider">Sinais</span>
+                <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-500 group-hover:text-cyan-400 transition-colors whitespace-nowrap">Sinais</span>
              </button>
          </div>
       </div>
 
-      {/* --- SCROLLABLE CONTENT AREA --- */}
-      <main className="pt-16 pb-32 animate-fade-in-up">
+      <main className="pt-16 pb-24">
         
-        {/* STICKY SEARCH & CATEGORIES */}
         <div className="sticky top-16 z-40 bg-[#020617]/95 backdrop-blur-xl border-b border-white/5 pt-4 pb-2 shadow-2xl">
-           <div className="max-w-4xl mx-auto px-4 space-y-4">
-               {/* 1. SCALAR MODE TOGGLE */}
-              <div className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg border border-slate-800">
-                  <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isScalarMode ? 'bg-slate-200 text-slate-900' : 'bg-slate-800 text-slate-500'}`}>
-                          <Infinity className="w-5 h-5" />
+           <div className="max-w-6xl mx-auto px-4 space-y-4">
+              
+              {/* SCALAR & REACTOR COMPACT ROWS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* SCALAR MODE */}
+                  <div className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                      <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isScalarMode ? 'bg-slate-200 text-slate-900' : 'bg-slate-800 text-slate-500'}`}>
+                              <Infinity className="w-5 h-5" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                              <div className="text-base md:text-lg font-bold text-white tracking-wide">Modo Escalar</div>
+                              <button onClick={() => setShowScalarHelp(true)} className="p-1 text-slate-500 hover:text-white rounded-full"><HelpCircle className="w-3 h-3"/></button>
+                          </div>
                       </div>
-                      <div>
-                          <div className="text-sm font-bold text-slate-200">Modo Escalar (Zero Point)</div>
-                          <div className="text-xs text-slate-500">Cancelamento de Fase Quântica</div>
-                      </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                      <button onClick={() => setShowScalarHelp(true)} className="p-1.5 text-slate-500 hover:text-white bg-slate-800/50 rounded-full"><HelpCircle className="w-4 h-4"/></button>
                       <button 
                           onClick={toggleScalarMode}
-                          className={`w-12 h-6 rounded-full transition-colors relative ${isScalarMode ? 'bg-slate-200' : 'bg-slate-700'}`}
+                          className={`w-10 h-5 rounded-full transition-colors relative ${isScalarMode ? 'bg-slate-200' : 'bg-slate-700'}`}>
+                          <div className={`absolute top-1 w-3 h-3 rounded-full transition-transform duration-300 ${isScalarMode ? 'translate-x-6 bg-slate-900' : 'translate-x-1 bg-slate-400'}`}></div>
+                      </button>
+                  </div>
+
+                  {/* REACTOR MODE (COMPACT) */}
+                  <div className="flex items-center justify-between bg-gradient-to-r from-red-900/20 to-orange-900/20 p-3 rounded-lg border border-orange-500/20">
+                      <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border border-orange-500/50 ${isReactorActive ? 'bg-orange-500 text-white shadow-[0_0_10px_orange]' : 'bg-slate-900 text-orange-500'}`}>
+                              <Atom className={`w-5 h-5 ${isReactorActive ? 'animate-spin' : ''}`} />
+                          </div>
+                          <div className="flex items-center gap-2">
+                              <div className="text-base md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-200 to-red-400">O Reator</div>
+                              <button onClick={() => setShowReactorHelp(true)} className="p-1 text-slate-500 hover:text-white rounded-full"><HelpCircle className="w-3 h-3"/></button>
+                          </div>
+                      </div>
+                      <button
+                          onClick={() => toggleFrequency(REACTOR_FREQUENCY)}
+                          className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider transition-all shadow-lg ${isReactorActive ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:text-white'}`}
                       >
-                          <div className={`absolute top-1 w-4 h-4 rounded-full transition-transform duration-300 ${isScalarMode ? 'translate-x-7 bg-slate-900' : 'translate-x-1 bg-slate-400'}`}></div>
+                          {isReactorActive ? 'ATIVO' : 'ATIVAR'}
                       </button>
                   </div>
               </div>
 
-              {/* 2. UNIFIED SEARCH INPUT */}
-              <div className="relative group">
+              <div className="relative group scroll-mt-24">
                   <div className={`absolute inset-0 bg-gradient-to-r rounded-full blur transition-opacity opacity-0 group-hover:opacity-30 ${searchMode === 'MATRIX' ? 'from-emerald-500 to-green-500' : 'from-cyan-500 to-blue-500'}`}></div>
-                  <div className={`relative bg-slate-900/90 border rounded-full flex items-center p-1.5 pr-2 shadow-lg transition-colors ${searchMode === 'MATRIX' ? 'border-emerald-500/30 focus-within:border-emerald-500' : 'border-cyan-500/30 focus-within:border-cyan-500'}`}>
-                      {searchMode === 'MATRIX' ? (
-                         <Database className="w-5 h-5 text-emerald-500 ml-3 mr-2" />
-                      ) : (
-                         <Sparkles className="w-5 h-5 text-cyan-500 ml-3 mr-2" />
-                      )}
+                  <div className={`relative bg-slate-900/90 border rounded-full flex items-center p-2 shadow-lg transition-colors ${searchMode === 'MATRIX' ? 'border-emerald-500/30 focus-within:border-emerald-500' : 'border-cyan-500/30 focus-within:border-cyan-500'}`}>
+                      
                       <input 
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder={searchMode === 'MATRIX' ? "O que deseja baixar? (Ex: Inglês, Karatê...)" : "Qual sua intenção? (Ex: Curar dor...)"}
-                        className="bg-transparent border-none outline-none text-slate-200 text-sm w-full placeholder-slate-500"
+                        placeholder={searchMode === 'MATRIX' ? "O que deseja baixar? (Ex: Inglês, Programação...)" : "Qual sua intenção? (Ex: Prosperidade, Amor...)"}
+                        className="bg-transparent border-none outline-none text-slate-200 text-sm w-full placeholder-slate-500 pl-4 py-2"
                         onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
                       />
-                      <div className="flex items-center gap-2 mr-2 bg-slate-800/50 rounded-full p-1 border border-slate-700">
+
+                      <div className="flex items-center gap-3 pr-1">
+                          <div className="hidden md:flex items-center gap-1 bg-slate-800/50 rounded-full p-1 border border-slate-700">
+                              <button 
+                                 onClick={() => setSearchMode('INTENT')}
+                                 className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all leading-none flex items-center ${searchMode === 'INTENT' ? 'bg-cyan-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                              >
+                                  INTENÇÃO
+                              </button>
+                              <button 
+                                 onClick={() => setSearchMode('MATRIX')}
+                                 className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all leading-none flex items-center ${searchMode === 'MATRIX' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                              >
+                                  MATRIX
+                              </button>
+                          </div>
+
                           <button 
-                             onClick={() => setSearchMode('INTENT')}
-                             className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${searchMode === 'INTENT' ? 'bg-cyan-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                             onClick={() => setSearchMode(prev => prev === 'INTENT' ? 'MATRIX' : 'INTENT')}
+                             className="md:hidden text-[10px] font-bold px-2 py-1 bg-slate-800 rounded text-slate-400"
                           >
-                              INTENÇÃO
+                             {searchMode === 'INTENT' ? 'INT' : 'MTX'}
                           </button>
+
                           <button 
-                             onClick={() => setSearchMode('MATRIX')}
-                             className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${searchMode === 'MATRIX' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                            onClick={() => handleGenerate()}
+                            disabled={!searchTerm.trim() || isGenerating}
+                            className={`w-10 h-10 flex items-center justify-center rounded-full text-white transition-all shadow-lg hover:scale-105 disabled:opacity-50 disabled:scale-100 ${searchMode === 'MATRIX' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-cyan-600 hover:bg-cyan-500'}`}
                           >
-                              MATRIX
+                             {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudDownload className="w-4 h-4" />}
                           </button>
                       </div>
-                      <button 
-                        onClick={() => handleGenerate()}
-                        disabled={!searchTerm.trim() || isGenerating}
-                        className={`w-10 h-10 flex items-center justify-center rounded-full text-white transition-all disabled:opacity-50 ${searchMode === 'MATRIX' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-cyan-600 hover:bg-cyan-500'}`}
-                      >
-                         {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
-                      </button>
                   </div>
               </div>
 
-              {/* 3. CATEGORY TABS */}
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide no-scrollbar">
+              <div className="flex gap-2 overflow-x-auto pb-4 pt-1 scrollbar-hide no-scrollbar items-center">
                   <button
                       onClick={() => handleCategoryChange('All')}
-                      className={`px-4 py-2 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border ${
+                      className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center min-h-[36px] ${
                           selectedCategory === 'All' 
                           ? 'bg-slate-100 text-slate-900 border-slate-100 shadow-[0_0_10px_white]' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
@@ -693,7 +949,7 @@ const App: React.FC = () => {
                   </button>
                   <button
                       onClick={() => handleCategoryChange('FAVORITOS')}
-                      className={`px-4 py-2 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center gap-2 ${
+                      className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center gap-2 min-h-[36px] ${
                           selectedCategory === 'FAVORITOS' 
                           ? 'bg-rose-900/30 text-rose-200 border-rose-500/50 shadow-[0_0_10px_rgba(244,63,94,0.3)]' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
@@ -713,7 +969,7 @@ const App: React.FC = () => {
                           <button
                               key={cat}
                               onClick={() => handleCategoryChange(cat)}
-                              className={`px-4 py-2 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border ${
+                              className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center min-h-[36px] ${
                                   isSelected 
                                   ? `bg-gradient-to-r ${theme.gradient} ${textColor} border-transparent shadow-lg` 
                                   : `bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500`
@@ -727,135 +983,223 @@ const App: React.FC = () => {
            </div>
         </div>
 
-        {/* MAIN FREQUENCY GRID */}
-        <div className="max-w-4xl mx-auto px-4 pt-6 min-h-[100vh]" ref={listTopRef}>
+        <div className="max-w-6xl mx-auto px-4 pt-6 min-h-[100vh]" ref={listTopRef}>
           
-          {/* Biometrics Recalibration Button */}
-          <div className="mb-6 flex justify-center">
-              <button 
-                  onClick={() => setShowCalibration(true)}
-                  className="group flex items-center gap-3 px-5 py-2 rounded-full bg-slate-900/60 border border-cyan-500/30 text-cyan-200 text-sm font-orbitron tracking-widest hover:bg-cyan-900/20 hover:border-cyan-400/60 transition-all"
-              >
-                  <Fingerprint className="w-4 h-4 group-hover:animate-pulse" />
-                  {personalFrequency ? `MINHA FREQUÊNCIA: ${personalFrequency.hz} Hz` : 'SINTONIZAR BIOMETRIA'}
-              </button>
-          </div>
-
-          {/* --- THE REACTOR BUTTON --- */}
-          <div className="mb-8 p-1 rounded-3xl bg-gradient-to-r from-red-600 via-orange-500 to-yellow-500 animate-pulse">
-              <div className="bg-slate-950 rounded-[22px] p-6 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,100,0,0.2),transparent_70%)]"></div>
-                  <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-                      <div className="flex items-center gap-4">
-                          <div className={`w-16 h-16 rounded-full flex items-center justify-center border-2 border-orange-500 shadow-[0_0_20px_orange] bg-slate-900`}>
-                              <Atom className="w-8 h-8 text-white" />
-                          </div>
-                          <div>
-                              <h2 className="text-2xl font-orbitron font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-orange-400 to-red-500">
-                                  O REATOR
-                              </h2>
-                              <p className="text-orange-200/60 text-xs font-bold tracking-widest uppercase">Fonte Primordial • Fusão Gamma</p>
-                              <p className="text-slate-400 text-xs mt-1 max-w-sm">
-                                  O recurso mais poderoso do app. Sincronização hemisférica total via Corpo Caloso.
-                              </p>
-                          </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4">
-                          <button onClick={() => setShowReactorHelp(true)} className="p-2 text-slate-500 hover:text-white"><HelpCircle className="w-5 h-5"/></button>
-                          <button
-                              onClick={() => toggleFrequency(REACTOR_FREQUENCY)}
-                              className={`px-8 py-3 rounded-full font-bold tracking-widest transition-all shadow-xl bg-gradient-to-r from-orange-600 to-red-600 text-white hover:brightness-110`}
-                          >
-                              ATIVAR REATOR
-                          </button>
-                      </div>
-                  </div>
+          <div className="mb-6 relative group scroll-mt-32">
+              <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                  <Search className="w-4 h-4 text-slate-500" />
               </div>
+              <input 
+                ref={searchInputRef}
+                type="text"
+                value={filterTerm}
+                onChange={(e) => setFilterTerm(e.target.value)}
+                placeholder="Filtrar sua coleção..."
+                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:border-cyan-500/50 focus:bg-slate-900 transition-all placeholder-slate-600"
+              />
           </div>
 
-          {/* Filtered List */}
-          <div className="grid grid-cols-1 gap-4">
-              {filteredFrequencies.map((freq) => {
-                  const isActive = activeFrequencies.includes(freq.id);
-                  const theme = getCategoryTheme(freq.category);
-                  const isFav = favorites.includes(freq.id);
+          {/* GENERATED FREQUENCIES (UNIFIED LIST) */}
+          {filteredFrequencies.some(f => f.id.startsWith('custom_') || f.id.startsWith('offline_')) && (
+             <div className="mb-8">
+                 <div className="flex items-center justify-between mb-4 ml-2">
+                    <h3 className="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
+                       <Cloud className="w-3 h-3" /> Minhas Frequências (Geradas)
+                    </h3>
+                    
+                    {!isSelectionMode && (
+                        <button 
+                           onClick={() => {
+                               setIsSelectionMode(true);
+                               setSelectedItems(new Set());
+                           }}
+                           className="text-xs text-slate-500 hover:text-white flex items-center gap-1 transition-colors"
+                        >
+                            <Edit3 className="w-3 h-3" /> Gerenciar Lista
+                        </button>
+                    )}
+                 </div>
 
-                  return (
-                      <div 
-                        key={freq.id}
-                        id={freq.id}
-                        className={`relative overflow-hidden rounded-2xl border transition-all duration-500 group ${
-                            isActive 
-                            ? `${theme.bg} ${theme.border} ${theme.shadow} scale-[1.02]` 
-                            : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'
-                        }`}
-                      >
-                        {isActive && (
-                            <div className={`absolute inset-0 bg-gradient-to-r ${theme.gradient} opacity-5`}></div>
-                        )}
+                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {filteredFrequencies.filter(f => f.id.startsWith('custom_') || f.id.startsWith('offline_')).map(freq => renderCard(freq))}
+                 </div>
+             </div>
+          )}
 
-                        <div className="p-5 flex items-center justify-between relative z-10">
-                            <div className="flex items-center gap-4 flex-1">
-                                <button
-                                  onClick={() => toggleFrequency(freq)}
-                                  className={`w-12 h-12 flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-700 shadow-lg border border-white/10 ${
-                                      isActive 
-                                      ? `bg-gradient-to-br ${theme.gradient} text-white scale-110 shadow-[0_0_15px_rgba(255,255,255,0.3)]` 
-                                      : 'bg-slate-800 text-slate-500 group-hover:bg-slate-700'
-                                  }`}
-                                >
-                                    {isActive ? (
-                                        <Square className="w-5 h-5 fill-current" />
-                                    ) : (
-                                        <Play className="w-5 h-5 fill-current pl-1" />
-                                    )}
-                                </button>
+          {/* PRESETS SECTION */}
+          {(selectedCategory !== 'All' || filteredFrequencies.some(f => !f.id.startsWith('custom_') && !f.id.startsWith('offline_'))) && (
+              <>
+                 {selectedCategory === 'All' && (
+                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 ml-2">Biblioteca do App</h3>
+                 )}
+                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
+                    {filteredFrequencies.filter(f => !f.id.startsWith('custom_') && !f.id.startsWith('offline_')).map(freq => renderCard(freq))}
+                 </div>
+              </>
+          )}
 
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <h3 className={`font-rajdhani font-bold text-lg leading-tight truncate ${isActive ? 'text-white' : 'text-slate-200'}`}>
-                                            {freq.name}
-                                        </h3>
-                                        <span className={`flex items-center justify-center text-[10px] px-2 py-0.5 rounded-full border bg-opacity-20 whitespace-nowrap ${isActive ? 'border-white/30 text-white' : 'border-slate-700 text-slate-500'}`}>
-                                            {freq.hz} Hz
-                                        </span>
-                                    </div>
-                                    <p className={`text-xs leading-relaxed line-clamp-2 ${isActive ? 'text-white/80' : 'text-slate-500'}`}>
-                                        {freq.description}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-2 ml-4">
-                                <button 
-                                  onClick={(e) => toggleFavorite(e, freq.id)}
-                                  className={`p-2 rounded-full transition-colors ${isFav ? 'text-rose-400 bg-rose-400/10' : 'text-slate-600 hover:text-slate-400'}`}
-                                >
-                                    <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
-                                </button>
-                            </div>
-                        </div>
-                      </div>
-                  );
-              })}
-              
-              {filteredFrequencies.length === 0 && (
-                  <div className="text-center py-20 text-slate-500">
-                      <WifiOff className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                      <p>Nenhuma frequência encontrada nesta categoria.</p>
-                  </div>
-              )}
-          </div>
+          {filteredFrequencies.length === 0 && (
+              <div className="col-span-full text-center py-20 text-slate-500">
+                  <WifiOff className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                  <p>Nenhuma frequência encontrada.</p>
+              </div>
+          )}
         </div>
       </main>
 
-      {/* --- MODALS --- */}
+      {/* --- FLOATING MANAGE BAR (BOTTOM) --- */}
+      {isSelectionMode && (
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-4 bg-slate-900 border border-slate-700 p-2 rounded-full shadow-2xl animate-fade-in-up">
+              <div className="pl-4 text-sm font-bold text-white">
+                  {selectedItems.size} selecionados
+              </div>
+              <div className="h-4 w-px bg-slate-700"></div>
+              <button 
+                  onClick={() => setIsSelectionMode(false)} 
+                  className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white"
+              >
+                  Cancelar
+              </button>
+              {selectedItems.size > 0 && (
+                  <button 
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-full shadow-lg shadow-red-900/40 transition-all"
+                  >
+                      <Trash2 className="w-3 h-3" /> Apagar
+                  </button>
+              )}
+          </div>
+      )}
+
+      {/* --- MENU MODAL --- */}
+      {showMenu && (
+        <div className="fixed inset-0 z-[100] flex justify-start bg-black/60 backdrop-blur-sm">
+             <div className="bg-slate-900 border-r border-slate-700 w-80 h-full p-6 relative shadow-2xl animate-fade-in-up">
+                 <button onClick={() => setShowMenu(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X className="w-6 h-6"/></button>
+                 
+                 <h2 className="text-2xl font-orbitron font-bold text-white mb-8 border-b border-slate-700 pb-4">Menu</h2>
+                 
+                 <div className="space-y-6">
+                     {/* NETWORK STATUS IN MENU */}
+                     <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Status da Rede</h3>
+                            <div className={`w-2 h-2 rounded-full ${isOffline ? 'bg-slate-500' : 'bg-cyan-400 shadow-[0_0_8px_cyan]'}`}></div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                             <Globe className={`w-8 h-8 ${isOffline ? 'text-slate-600' : 'text-cyan-400'}`} />
+                             <div>
+                                 <p className={`text-sm font-bold ${isOffline ? 'text-slate-300' : 'text-white'}`}>
+                                     {isOffline ? 'Modo Offline' : 'Rede Quântica'}
+                                 </p>
+                                 <p className="text-[10px] text-slate-500">
+                                     {isOffline ? 'Banco de dados local ativo.' : 'Conectado à nuvem.'}
+                                 </p>
+                             </div>
+                        </div>
+                        <button 
+                           onClick={() => setShowTrustModal(true)}
+                           className="text-[10px] text-cyan-400 mt-2 hover:underline"
+                        >
+                           Ver detalhes técnicos
+                        </button>
+                     </div>
+
+                     {/* SETTINGS SECTION */}
+                     <div>
+                         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                             <Settings className="w-3 h-3" /> Configurações
+                         </h3>
+                         
+                         <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                             <div className="flex items-center gap-2 text-white font-bold text-sm mb-3">
+                                 <FolderOpen className="w-4 h-4 text-cyan-400" /> Destino dos Downloads
+                             </div>
+                             
+                             <div className="space-y-3">
+                                 <label className="flex items-center gap-3 cursor-pointer group">
+                                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${downloadMode === 'auto' ? 'border-cyan-400' : 'border-slate-600'}`}>
+                                         {downloadMode === 'auto' && <div className="w-2 h-2 rounded-full bg-cyan-400"></div>}
+                                     </div>
+                                     <input type="radio" className="hidden" checked={downloadMode === 'auto'} onChange={() => changeDownloadMode('auto')} />
+                                     <span className={`text-xs ${downloadMode === 'auto' ? 'text-white' : 'text-slate-400 group-hover:text-slate-300'}`}>
+                                         Automático (Pasta Padrão)
+                                     </span>
+                                 </label>
+
+                                 <label className="flex items-center gap-3 cursor-pointer group">
+                                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${downloadMode === 'ask' ? 'border-cyan-400' : 'border-slate-600'}`}>
+                                         {downloadMode === 'ask' && <div className="w-2 h-2 rounded-full bg-cyan-400"></div>}
+                                     </div>
+                                     <input type="radio" className="hidden" checked={downloadMode === 'ask'} onChange={() => changeDownloadMode('ask')} />
+                                     <span className={`text-xs ${downloadMode === 'ask' ? 'text-white' : 'text-slate-400 group-hover:text-slate-300'}`}>
+                                         Escolher Pasta (Manual)
+                                     </span>
+                                 </label>
+                             </div>
+                         </div>
+                     </div>
+
+                     <div className="border-t border-slate-700 pt-6">
+                         <button 
+                             onClick={handleBackToStart}
+                             className="flex items-center gap-3 text-slate-400 hover:text-red-400 transition-colors w-full"
+                         >
+                             <LogOut className="w-5 h-5" />
+                             <span>Voltar ao Início</span>
+                         </button>
+                     </div>
+                 </div>
+             </div>
+             {/* Backdrop Close Area */}
+             <div className="flex-1" onClick={() => setShowMenu(false)}></div>
+        </div>
+      )}
+
+      {/* CONFIRM DELETE MODAL */}
+      {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+              <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 relative shadow-2xl">
+                  <h3 className="text-xl font-bold text-white mb-2 text-center">Apagar Frequências?</h3>
+                  <p className="text-slate-400 text-center text-sm mb-6">
+                      {singleDeleteId 
+                        ? <span>Deseja apagar esta frequência permanentemente?</span>
+                        : <span>Você selecionou <span className="text-red-400 font-bold">{selectedItems.size}</span> itens.</span>
+                      }
+                      <br/>
+                      Essa ação não pode ser desfeita.
+                  </p>
+                  <div className="flex gap-3">
+                      <button 
+                          onClick={() => { setShowDeleteConfirm(false); setSingleDeleteId(null); }}
+                          className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold hover:bg-slate-700 transition-colors"
+                      >
+                          Cancelar
+                      </button>
+                      <button 
+                          onClick={handleDeleteSelected}
+                          className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-500 transition-colors shadow-lg shadow-red-900/20"
+                      >
+                          Confirmar
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* SUCCESS MESSAGE TOAST */}
       <div className={`fixed top-40 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 ${showSuccessMsg ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
          <div className="bg-emerald-500/90 text-white px-6 py-2 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.5)] backdrop-blur-md flex items-center gap-2 font-bold tracking-wide">
              <CheckCircle2 className="w-5 h-5" />
              Frequência Gerada com Sucesso
+         </div>
+      </div>
+
+      {/* NETWORK STATUS / WARNING TOAST */}
+      <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 ${networkMsg.show ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
+         <div className={`px-6 py-2 rounded-full shadow-lg backdrop-blur-md flex items-center gap-2 font-bold tracking-wide text-xs ${networkMsg.type === 'success' ? 'bg-cyan-500/90 text-white shadow-cyan-500/20' : 'bg-amber-500/90 text-white shadow-amber-500/20'}`}>
+             {networkMsg.type === 'success' ? <Wifi className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+             {networkMsg.msg}
          </div>
       </div>
 
@@ -867,7 +1211,7 @@ const App: React.FC = () => {
                 <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                     <Atom className="w-6 h-6 text-orange-500" /> O REATOR (Nível Supremo)
                 </h3>
-                <div className="space-y-4 text-sm text-slate-300">
+                <div className="space-y-4 text-slate-300">
                     <p>Você perguntou o que é mais poderoso que a Onda Escalar. A resposta é a <strong>FUSÃO GAMMA</strong>.</p>
                     
                     <div className="bg-slate-900 p-4 rounded-lg border border-slate-800">
@@ -916,7 +1260,7 @@ const App: React.FC = () => {
       {/* BIOMETRICS CALIBRATION MODAL */}
       {showCalibration && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-           <div className="bg-slate-900 border border-cyan-500/30 rounded-3xl max-w-sm w-full pt-6 pb-8 px-8 relative flex flex-col items-center shadow-[0_0_50px_rgba(6,182,212,0.2)]">
+           <div className="bg-slate-900 border border-cyan-500/30 rounded-3xl max-w-sm w-full pt-4 pb-8 px-8 relative flex flex-col items-center shadow-[0_0_50px_rgba(6,182,212,0.2)]">
                {!personalFrequency && (
                    <button onClick={() => setShowCalibration(false)} className="absolute top-4 right-4 text-slate-500"><X className="w-5 h-5" /></button>
                )}
@@ -929,7 +1273,6 @@ const App: React.FC = () => {
                       <h2 className="text-2xl font-bold text-white mb-2 text-center">Calibrado</h2>
                       <p className="text-cyan-400 text-3xl font-orbitron mb-4">{personalFrequency.hz} Hz</p>
                       
-                      {/* Biometric Advice */}
                       {(() => {
                           const advice = getBiometricAdvice(personalFrequency.hz);
                           return (
@@ -951,40 +1294,36 @@ const App: React.FC = () => {
 
                {(calibrationStep === 'idle' && !personalFrequency) || calibrationStep === 'scanning' ? (
                    <>
-                      <h2 className="text-xl font-bold text-white mb-2 text-center">Calibração Biométrica</h2>
+                      <h2 className="text-xl font-bold text-white mb-2 text-center mt-2">Calibração Biométrica</h2>
                       <p className="text-slate-400 text-center text-xs mb-8">
-                         Toque no sensor para leitura do campo bio-elétrico. <br/>
+                         {isTouchDevice ? 'Mantenha pressionado para leitura do campo bio-elétrico.' : 'No PC: Mantenha o clique pressionado para focar sua intenção.'} <br/>
                          <span className="text-cyan-400">Etapa {scanReadings.length + 1} de {MAX_SCANS}</span>
                       </p>
                       
-                      {/* FINGERPRINT SCANNER UI */}
                       <div 
                         className="relative w-32 h-32 flex items-center justify-center cursor-pointer mb-8 select-none"
                         onMouseDown={startBiometricScan}
                         onTouchStart={(e) => { e.preventDefault(); startBiometricScan(); }}
                       >
-                         {/* Aura */}
-                         <div className={`absolute inset-0 bg-cyan-500/20 rounded-full blur-xl transition-all duration-1000 ${isScanning ? 'scale-150 opacity-100' : 'scale-100 opacity-50'}`}></div>
+                         {/* CALMING BREATH ANIMATION */}
+                         <div className={`absolute inset-0 bg-cyan-500/20 rounded-full blur-xl transition-all duration-[2000ms] ease-in-out ${isScanning ? 'scale-125 opacity-80' : 'scale-100 opacity-40 animate-pulse'}`}></div>
                          
-                         {/* Icon */}
-                         <Fingerprint className={`relative z-10 w-16 h-16 transition-all duration-500 ${isScanning ? 'text-white scale-110' : 'text-cyan-500/50'}`} />
-                         
-                         {/* Scanning Ring */}
-                         {isScanning && (
-                             <svg className="absolute inset-0 w-full h-full animate-spin-slow">
-                                 <circle cx="64" cy="64" r="60" stroke="cyan" strokeWidth="2" fill="none" strokeDasharray="10 10" className="opacity-50" />
-                             </svg>
+                         {isTouchDevice ? (
+                             <Fingerprint className={`relative z-10 w-16 h-16 transition-all duration-1000 ${isScanning ? 'text-white' : 'text-cyan-500/50'}`} />
+                         ) : (
+                             <MousePointer2 className={`relative z-10 w-16 h-16 transition-all duration-1000 ${isScanning ? 'text-white' : 'text-cyan-500/50'}`} />
                          )}
                       </div>
 
-                      {/* Technical Explanation */}
                       <div className="bg-slate-800/50 rounded-xl p-4 w-full">
                           <h3 className="text-xs font-bold text-slate-300 mb-2 flex items-center gap-2">
-                             <Activity className="w-3 h-3 text-cyan-400" /> Tecnologia de Bio-Feedback
+                             <Activity className="w-3 h-3 text-cyan-400" /> Bio-Ressonância Digital
                           </h3>
                           <p className="text-[10px] text-slate-400 leading-relaxed">
-                              O sensor capacitivo da tela detecta micro-variações na condutividade elétrica da pele (GSR) e pressão. 
-                              O algoritmo converte essa variabilidade nervosa em uma frequência Hz correspondente ao seu estado atual.
+                              {isTouchDevice 
+                                ? 'O sensor detecta micro-variações no toque. ' 
+                                : 'A conexão é estabelecida através do foco da sua intenção durante o clique. '}
+                              O algoritmo converte essa energia em uma frequência Hz correspondente ao seu estado atual.
                           </p>
                       </div>
                    </>
@@ -1023,41 +1362,174 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* TRUST / OFFLINE EXPLANATION MODAL */}
+      {/* TRUST / NETWORK STATUS MODAL */}
       {showTrustModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
               <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 relative">
                   <button onClick={() => setShowTrustModal(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X className="w-5 h-5"/></button>
                   <div className="flex flex-col items-center mb-6">
-                      {isOffline ? <WifiOff className="w-10 h-10 text-slate-400 mb-2"/> : <Network className="w-10 h-10 text-cyan-400 mb-2"/>}
-                      <h3 className="text-lg font-bold text-white">
-                          {isOffline ? 'MODO OFFLINE' : 'MODO ONLINE'}
-                      </h3>
+                      <Globe className="w-12 h-12 mb-3 text-cyan-400" />
+                      <h3 className="text-lg font-bold text-white">Status da Rede Quântica</h3>
                   </div>
                   
-                  {isOffline ? (
-                      <div className="text-sm text-slate-300 space-y-4">
-                          <p>Você está desconectado da internet, mas conectado à Matemática Universal.</p>
-                          <div className="bg-slate-800 p-3 rounded-lg border border-slate-700">
-                              <h4 className="font-bold text-white mb-1">Como funciona offline?</h4>
-                              <p className="text-xs">O app utiliza um algoritmo de <strong>Geometria Sagrada</strong> e a <strong>Sequência de Fibonacci</strong> para converter cada letra da sua intenção em uma frequência harmônica pura. Não é aleatório; é matemática divina.</p>
+                  <div className="space-y-4">
+                      <div className={`p-4 rounded-xl border transition-all ${!isOffline ? 'bg-cyan-900/20 border-cyan-500/30' : 'bg-slate-800/30 border-slate-800 opacity-60'}`}>
+                          <div className="flex items-center gap-3 mb-2">
+                              <div className={`w-2 h-2 rounded-full ${!isOffline ? 'bg-cyan-400 shadow-[0_0_10px_cyan]' : 'bg-slate-600'}`}></div>
+                              <h4 className={`font-bold text-sm ${!isOffline ? 'text-white' : 'text-slate-400'}`}>Modo Online (Nuvem)</h4>
                           </div>
+                          <p className="text-xs text-slate-300 leading-relaxed">
+                              Conectado à inteligência generativa. Acessa bancos de dados metafísicos globais para correlacionar sua intenção com frequências Rife exatas.
+                          </p>
                       </div>
-                  ) : (
-                      <div className="text-sm text-slate-300 space-y-4">
-                          <p>Você está conectado à nuvem de inteligência generativa.</p>
-                          <div className="bg-slate-800 p-3 rounded-lg border border-slate-700">
-                              <h4 className="font-bold text-white mb-1">Como funciona online?</h4>
-                              <p className="text-xs">O sistema acessa bancos de dados metafísicos globais para correlacionar sua intenção com as frequências Rife e Solfeggio mais precisas conhecidas.</p>
+
+                      <div className={`p-4 rounded-xl border transition-all ${isOffline ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-slate-800/30 border-slate-800 opacity-60'}`}>
+                          <div className="flex items-center gap-3 mb-2">
+                              <div className={`w-2 h-2 rounded-full ${isOffline ? 'bg-emerald-400 shadow-[0_0_10px_emerald]' : 'bg-slate-600'}`}></div>
+                              <h4 className={`font-bold text-sm ${isOffline ? 'text-white' : 'text-slate-400'}`}>Modo Offline (Geometria)</h4>
                           </div>
+                          <p className="text-xs text-slate-300 leading-relaxed">
+                              Algoritmo local ativo. Usa a Sequência de Fibonacci para converter texto em vibração matemática pura quando não há internet.
+                          </p>
                       </div>
-                  )}
+                  </div>
               </div>
           </div>
       )}
 
     </div>
   );
+
+  // Helper render function for cards to avoid code dup
+  function renderCard(freq: Frequency) {
+      const isActive = activeFrequencies.includes(freq.id);
+      const theme = getCategoryTheme(freq.category);
+      const isFav = favorites.includes(freq.id);
+      const downloading = isDownloading === freq.id;
+      const isSelectedForDelete = selectedItems.has(freq.id);
+
+      // Determine the origin icon (Offline or Online) for generated cards
+      const isOfflineGen = freq.id.startsWith('offline_');
+      const isGenerated = freq.id.startsWith('custom_') || isOfflineGen;
+      
+      // Determine badge properties
+      let badge = null;
+      if (isGenerated) {
+          if (isOfflineGen) {
+              badge = (
+                  <div className="absolute top-0 right-0 bg-amber-500/20 text-amber-200 text-[9px] font-bold px-2 py-1 rounded-bl-lg backdrop-blur-sm border-l border-b border-amber-500/30 flex items-center gap-1 z-20">
+                      <Database className="w-3 h-3" />
+                      <span>GEOMETRIA</span>
+                  </div>
+              );
+          } else {
+              badge = (
+                  <div className="absolute top-0 right-0 bg-cyan-500/20 text-cyan-200 text-[9px] font-bold px-2 py-1 rounded-bl-lg backdrop-blur-sm border-l border-b border-cyan-500/30 flex items-center gap-1 z-20">
+                      <Cloud className="w-3 h-3" />
+                      <span>NUVEM IA</span>
+                  </div>
+              );
+          }
+      } else {
+          // Optional: Badge for system presets if desired, or leave clean
+          // badge = <div className="absolute top-0 right-0 bg-slate-700/30 text-slate-400 text-[9px] font-bold px-2 py-1 rounded-bl-lg flex items-center gap-1 z-20"><Cpu className="w-3 h-3"/><span>SISTEMA</span></div>;
+      }
+
+      return (
+          <div 
+            key={freq.id}
+            id={freq.id}
+            onClick={() => isSelectionMode && toggleSelection(freq.id)}
+            className={`relative overflow-hidden rounded-2xl border transition-all duration-500 group ${
+                isSelectionMode 
+                   ? isSelectedForDelete 
+                       ? 'bg-red-900/20 border-red-500 scale-[0.98]' 
+                       : 'bg-slate-900/40 border-slate-700 hover:bg-slate-800'
+                   : isActive 
+                       ? `${theme.bg} ${theme.border} ${theme.shadow} scale-[1.02]` 
+                       : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'
+            } ${isSelectionMode && isGenerated ? 'cursor-pointer' : ''}`}
+          >
+            {isActive && !isSelectionMode && (
+                <div className={`absolute inset-0 bg-gradient-to-r ${theme.gradient} opacity-5`}></div>
+            )}
+            
+            {/* SOURCE BADGE */}
+            {badge}
+
+            {/* DELETE OVERLAY (Only for generated) */}
+            {isSelectionMode && isGenerated && (
+                <div className="absolute top-4 right-4 z-20">
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelectedForDelete ? 'bg-red-500 border-red-500' : 'border-slate-500'}`}>
+                        {isSelectedForDelete && <X className="w-4 h-4 text-white" />}
+                    </div>
+                </div>
+            )}
+
+            <div className={`p-5 flex items-center justify-between relative z-10 ${isSelectionMode && isGenerated ? 'opacity-70 pointer-events-none' : ''}`}>
+                <div className="flex items-center gap-4 flex-1">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleFrequency(freq); }}
+                      className={`w-12 h-12 flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-700 shadow-lg border border-white/10 ${
+                          isActive 
+                          ? `bg-gradient-to-br ${theme.gradient} text-white scale-110 shadow-[0_0_15px_rgba(255,255,255,0.3)]` 
+                          : 'bg-slate-800 text-slate-500 group-hover:bg-slate-700'
+                      }`}
+                    >
+                        {isActive ? (
+                            <Square className="w-5 h-5 fill-current" />
+                        ) : (
+                            <Play className="w-5 h-5 fill-current pl-1" />
+                        )}
+                    </button>
+
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 mt-3">
+                            <h3 className={`font-rajdhani font-bold text-lg leading-tight truncate ${isActive ? 'text-white' : 'text-slate-200'}`}>
+                                {freq.name}
+                            </h3>
+                            <span className={`flex items-center justify-center text-[10px] px-2 py-0.5 rounded-full border bg-opacity-20 whitespace-nowrap flex-shrink-0 ${isActive ? 'border-white/30 text-white' : 'border-slate-700 text-slate-500'}`}>
+                                {freq.hz} Hz
+                            </span>
+                        </div>
+                        <p className={`text-xs leading-relaxed line-clamp-2 ${isActive ? 'text-slate-200' : 'text-slate-400'}`}>
+                            {freq.description}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-2 ml-4">
+                    <button 
+                      onClick={(e) => toggleFavorite(e, freq.id)}
+                      className={`p-2 rounded-full transition-colors ${isFav ? 'text-rose-400 bg-rose-400/10' : 'text-slate-600 hover:text-slate-400'}`}
+                    >
+                        <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
+                    </button>
+                    <button 
+                      onClick={(e) => handleDownload(e, freq)}
+                      className={`p-2 rounded-full transition-colors ${downloading ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 hover:text-cyan-400'}`}
+                      title="Baixar Áudio (Offline)"
+                    >
+                        {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                    </button>
+                    {isGenerated && !isSelectionMode && (
+                        <button 
+                           onClick={(e) => { 
+                               e.stopPropagation(); 
+                               setSingleDeleteId(freq.id); 
+                               setShowDeleteConfirm(true); 
+                           }}
+                           className="p-2 rounded-full text-slate-600 hover:text-red-400 transition-colors"
+                           title="Apagar Frequência"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+            </div>
+          </div>
+      );
+  }
 };
 
 // Helper Icon for Headphones

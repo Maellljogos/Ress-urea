@@ -17,6 +17,7 @@ export enum FrequencyCategory {
   ARCHETYPE = 'Arquétipos Místicos',
   CUSTOM = 'Canalizado por IA',
   PERSONAL = 'Sintonia Pessoal',
+  SLEEP = 'Sono Profundo & Sonhos',
 }
 
 export interface ActiveOscillator {

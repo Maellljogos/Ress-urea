@@ -3,9 +3,18 @@ import { Frequency, FrequencyCategory } from './types';
 export const GUARDIAN_FREQUENCY: Frequency = {
   id: 'guardian_shield_432',
   hz: 432,
-  name: 'Escudo de Amor & Proteção',
-  description: 'Frequência base contínua. Bloqueia negatividade, remove medo e envolve em amor incondicional.',
+  name: 'Escudo de Proteção Absoluta',
+  description: 'Frequência base contínua. Bloqueia negatividade, remove tensão e promove equilíbrio universal e segurança total.',
   category: FrequencyCategory.SOLFEGGIO,
+};
+
+// NEW: Subliminal Uplift Frequency (Beta Endorphins / Cell Rejuvenation)
+export const UPLIFT_FREQUENCY: Frequency = {
+  id: 'subliminal_uplift_111',
+  hz: 111,
+  name: 'Elevação Positiva',
+  description: 'Frequência oculta de bem-estar e transmutação de humor.',
+  category: FrequencyCategory.BODY
 };
 
 export const REACTOR_FREQUENCY: Frequency = {
@@ -16,7 +25,51 @@ export const REACTOR_FREQUENCY: Frequency = {
   category: FrequencyCategory.HYPER_MATRIX,
 };
 
+export const REACTOR_MODES = [
+  { 
+    id: 'source_core', 
+    name: 'Fonte Primordial', 
+    hz: 40, 
+    description: 'Frequência Gamma (40Hz). Despertar total e fusão.' 
+  },
+  { 
+    id: 'sleep_core', 
+    name: 'Hibernação', 
+    hz: 0.5, 
+    description: 'Frequência Delta (0.5Hz). Sono profundo e regenerativo.' 
+  },
+  { 
+    id: 'lucid_core', 
+    name: 'Sonhos Lúcidos', 
+    hz: 5.5, 
+    description: 'Frequência Theta (5.5Hz). Consciência no sonho.' 
+  }
+];
+
 export const PRESET_FREQUENCIES: Frequency[] = [
+  // --- PROTEÇÃO & SORTE (NOVOS) ---
+  {
+    id: 'luck_boost_4_0',
+    hz: 4.0,
+    name: 'Sorte Quântica (Theta)',
+    description: 'Reduz a ansiedade e coloca a mente no estado de "Permissão" para coincidências afortunadas.',
+    category: FrequencyCategory.ABUNDANCE,
+  },
+  {
+    id: 'charisma_king_6',
+    hz: 6.15,
+    name: 'Carisma Magnético',
+    description: 'Frequência do Coração/Timo. Aumenta a presença, charme e magnetismo pessoal instantâneo.',
+    category: FrequencyCategory.PERFORMANCE,
+  },
+  {
+    id: 'spiritual_shield_1000',
+    hz: 1000,
+    name: 'Blindagem Divina (Cerebral)',
+    description: 'Frequência mestre para proteção psíquica e conexão com o Eu Superior.',
+    category: FrequencyCategory.ARCHETYPE,
+  },
+
   // --- PROTOCOLO CAPILAR (ESTÉTICA & FORÇA) ---
   {
     id: 'anti_baldness_465',
@@ -45,7 +98,7 @@ export const PRESET_FREQUENCIES: Frequency[] = [
     id: 'christ_consciousness_333',
     hz: 333,
     name: 'Consciência Crística',
-    description: 'A frequência do Amor Divino. Conexão direta com a "Mente de Cristo" e compaixão universal.',
+    description: 'A frequência da Unidade Divina. Conexão direta com a "Mente Universal" e compaixão.',
     category: FrequencyCategory.ARCHETYPE,
   },
   {
@@ -128,6 +181,36 @@ export const PRESET_FREQUENCIES: Frequency[] = [
     name: 'Arquétipo da Prosperidade',
     description: 'Transferência de informação pura de riqueza sem resistência da matéria.',
     category: FrequencyCategory.SCALAR,
+  },
+  {
+    id: 'scalar_sleep_silence',
+    hz: 0.5,
+    name: 'Silêncio do Sono (Escalar)',
+    description: 'Zero Point Delta. Cancela ruído mental para entrada imediata no sono profundo.',
+    category: FrequencyCategory.SLEEP,
+  },
+
+  // --- SONO & REGENERAÇÃO ---
+  {
+    id: 'delta_sleep_coma_0_5',
+    hz: 0.5,
+    name: 'Delta Profundo (Regeneração)',
+    description: 'Sono extremamente profundo, alívio de dor e cura física total.',
+    category: FrequencyCategory.SLEEP,
+  },
+  {
+    id: 'insomnia_rife_3_4',
+    hz: 3.4,
+    name: 'Cura da Insônia (Rife)',
+    description: 'Frequência específica para desligar o sistema nervoso e induzir sono reparador.',
+    category: FrequencyCategory.SLEEP,
+  },
+  {
+    id: 'lucid_dream_theta',
+    hz: 5.5,
+    name: 'Sonhos Lúcidos (Theta)',
+    description: 'Consciência durante o sonho. Viagem astral e programação subconsciente.',
+    category: FrequencyCategory.SLEEP,
   },
 
   // --- ESTÉTICA & REJUVENESCIMENTO (BIO-BELEZA) ---
@@ -459,13 +542,6 @@ export const PRESET_FREQUENCIES: Frequency[] = [
     name: 'Estado Xamânico (Theta)',
     description: 'Transe profundo para jornadas espirituais e visões.',
     category: FrequencyCategory.MIND,
-  },
-  {
-    id: 'delta_sleep_coma_0_5',
-    hz: 0.5,
-    name: 'Delta Profundo (Regeneração)',
-    description: 'Sono extremamente profundo, alívio de dor e cura física total.',
-    category: FrequencyCategory.BODY,
   },
   {
     id: 'epsilon_wave',
