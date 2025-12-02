@@ -384,11 +384,11 @@ const App: React.FC = () => {
 
     // Sequence for transition
     setTimeout(() => setTransitionStep(1), 500); // "Initializing"
-    setTimeout(() => setTransitionStep(2), 1200); // "Tuning"
+    setTimeout(() => setTransitionStep(2), 1500); // "Tuning"
     setTimeout(() => {
         setHasStarted(true);
         setIsTransitioning(false);
-    }, 2200);
+    }, 2500); // Extended slightly to allow animation to feel complete
   };
 
   const handleStart = () => {
@@ -590,7 +590,7 @@ const App: React.FC = () => {
   // --- RENDER: LANDING PAGE & TRANSITION ---
   if (!hasStarted) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#020617] text-center">
+      <div className="h-screen w-full flex flex-col items-center justify-center p-4 relative overflow-hidden bg-[#020617] text-center">
         {/* BACKGROUND */}
         <div className="absolute inset-0 bg-[#020617]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.05),transparent_70%)] animate-pulse" style={{ animationDuration: '6s' }}></div>
@@ -598,63 +598,64 @@ const App: React.FC = () => {
 
         {/* TRANSITION OVERLAY */}
         {isTransitioning ? (
-             <div className="relative z-50 flex flex-col items-center animate-fadeIn">
+             <div className="relative z-50 flex flex-col items-center animate-fadeIn w-full max-w-sm">
                  <div className="mb-8 scale-150 relative">
                      <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full animate-pulse"></div>
-                     <Atom className="w-20 h-20 text-cyan-400 animate-spin" style={{ animationDuration: '1s' }} />
+                     <Atom className="w-16 h-16 text-cyan-400 animate-spin" style={{ animationDuration: '0.5s' }} />
                  </div>
                  
-                 <div className="h-8 overflow-hidden flex flex-col items-center">
-                     <div className={`transition-transform duration-500 ${transitionStep === 1 ? 'translate-y-0' : '-translate-y-10'}`}>
-                         <h2 className="text-xl font-orbitron text-cyan-200 tracking-[0.3em]">INICIALIZANDO...</h2>
+                 <div className="h-10 overflow-hidden flex flex-col items-center mb-6 w-full">
+                     <div className={`transition-all duration-500 transform ${transitionStep === 1 ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'} absolute`}>
+                         <h2 className="text-lg font-orbitron text-cyan-200 tracking-[0.2em]">INICIALIZANDO SISTEMA...</h2>
                      </div>
-                     <div className={`transition-transform duration-500 absolute ${transitionStep === 2 ? 'translate-y-0' : 'translate-y-10'}`}>
-                         <h2 className="text-xl font-orbitron text-white tracking-[0.3em] glow-text-cyan">SINTONIZANDO 432Hz</h2>
+                     <div className={`transition-all duration-500 transform ${transitionStep === 2 ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'} absolute`}>
+                         <h2 className="text-lg font-orbitron text-white tracking-[0.2em] glow-text-cyan whitespace-nowrap">CARREGANDO MÓDULOS DE FREQUÊNCIA</h2>
                      </div>
                  </div>
                  
-                 <div className="w-48 h-1 bg-slate-800 rounded-full mt-6 overflow-hidden">
-                     <div className="h-full bg-cyan-400 animate-[width_2s_ease-out_forwards]" style={{ width: '100%' }}></div>
+                 <div className="w-full h-0.5 bg-slate-800 rounded-full overflow-hidden">
+                     <div className="h-full bg-cyan-400 animate-[width_2.5s_ease-out_forwards]" style={{ width: '100%' }}></div>
                  </div>
              </div>
         ) : (
-             <div className="relative z-10 flex flex-col items-center max-w-md w-full animate-fade-in-up">
-                <div className="mb-6 scale-125">
+             <div className="relative z-10 flex flex-col items-center max-w-md w-full animate-fade-in-up h-full justify-center">
+                {/* Visualizer smaller on landing to fit screens */}
+                <div className="mb-4 scale-90">
                    <Visualizer isActive={false} forceAnimate={true} speedMultiplier={0.3} breathDuration="10s" />
                 </div>
 
-                <h1 className="text-5xl md:text-6xl font-orbitron font-bold mb-4 tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-cyan-100 to-slate-100 glow-text-cyan">
+                <h1 className="text-4xl md:text-5xl font-orbitron font-bold mb-2 tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-cyan-100 to-slate-100 glow-text-cyan">
                   RESSAUREA
                 </h1>
                 
-                <p className="text-cyan-200/60 text-lg mb-8 font-light tracking-[0.2em] uppercase">
+                <p className="text-cyan-200/60 text-base mb-6 font-light tracking-[0.2em] uppercase">
                   Sintonia de Alta Frequência
                 </p>
 
                 {/* NEW LANDING TEXT */}
-                <div className="mb-10 space-y-2 opacity-80 max-w-sm mx-auto">
-                    <p className="text-sm md:text-base text-slate-300 font-rajdhani leading-relaxed">
+                <div className="mb-8 space-y-2 opacity-80 max-w-sm mx-auto">
+                    <p className="text-sm text-slate-300 font-rajdhani leading-relaxed">
                         Acesse o <span className="text-cyan-300 font-semibold">Campo de Potencial Infinito</span>.
                     </p>
-                    <p className="text-xs md:text-sm text-slate-400 font-light tracking-wide">
+                    <p className="text-xs text-slate-400 font-light tracking-wide">
                         Harmonização quântica, proteção e expansão da consciência em um toque.
                     </p>
                 </div>
 
-                <div className="bg-slate-900/60 border border-cyan-500/20 p-6 rounded-2xl max-w-sm w-full mb-8 backdrop-blur-md shadow-[0_0_50px_rgba(6,182,212,0.05)]">
-                    <div className="flex items-center justify-center gap-2 text-cyan-400 font-bold tracking-wider text-xs uppercase">
-                        <ShieldCheck className="w-5 h-5" />
+                <div className="bg-slate-900/60 border border-cyan-500/20 p-4 rounded-xl max-w-xs w-full mb-8 backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.05)]">
+                    <div className="flex items-center justify-center gap-2 text-cyan-400 font-bold tracking-wider text-[10px] uppercase">
+                        <ShieldCheck className="w-4 h-4" />
                         <span>BLINDAGEM VIBRACIONAL</span>
                     </div>
                 </div>
 
                 <button
                   onClick={handleEnterApp}
-                  className="group relative px-10 py-5 bg-transparent overflow-hidden rounded-full transition-all duration-500 hover:scale-105"
+                  className="group relative px-10 py-4 bg-transparent overflow-hidden rounded-full transition-all duration-500 hover:scale-105"
                 >
                   <div className="absolute inset-0 border border-cyan-500/30 rounded-full"></div>
                   <div className="absolute inset-0 bg-cyan-500/10 blur-xl group-hover:bg-cyan-500/20 transition-all duration-500"></div>
-                  <div className="relative flex items-center gap-3 text-cyan-100 font-orbitron tracking-widest text-lg">
+                  <div className="relative flex items-center gap-3 text-cyan-100 font-orbitron tracking-widest text-base">
                     <span>ENTRAR</span>
                   </div>
                 </button>
@@ -914,8 +915,8 @@ const App: React.FC = () => {
                   </div>
               </div>
 
-              {/* CATEGORY LIST - FIXED SPACING (gap-4) AND LOGIC */}
-              <div className="flex gap-4 overflow-x-auto pt-4 pb-2 px-8 -mx-8 category-scroll items-center w-[calc(100%+4rem)]">
+              {/* CATEGORY LIST - FIXED SPACING (gap-6) AND LOGIC */}
+              <div className="flex gap-6 overflow-x-auto pt-4 pb-2 px-8 -mx-8 category-scroll items-center w-[calc(100%+4rem)]">
                   <div className="pl-4"></div>
                   <button
                       onClick={() => handleCategoryChange('All')}
@@ -928,14 +929,14 @@ const App: React.FC = () => {
                       TODOS
                   </button>
 
-                  {/* ATIVOS (PLAYING) CATEGORY - REFINED LOGIC */}
+                  {/* ATIVOS (PLAYING) CATEGORY - REFINED LOGIC & ANIMATION */}
                   <button
                       onClick={() => handleCategoryChange('ATIVOS')}
                       className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center gap-2 min-h-[36px] min-w-[100px] hover:scale-105 ${
                           isAtivosSelected
                             ? 'bg-amber-950/40 text-amber-100 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] scale-105'
                             : isAtivosHighlighted
-                                ? 'bg-amber-950/20 text-amber-500 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)] animate-pulse'
+                                ? 'bg-amber-950/20 text-amber-500 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)] animate-pulse scale-100'
                                 : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
                       }`}
                   >
@@ -1021,30 +1022,29 @@ const App: React.FC = () => {
               </div>
           </div>
 
-          {/* === GUARDIAN FREQUENCY BANNER (COMPACT REDESIGN) === */}
+          {/* === GUARDIAN FREQUENCY BANNER (COMPACT / SLIM REDESIGN) === */}
           {selectedCategory === 'ATIVOS' && guardianActive && guardianEnabledByUser && (
               <div className="mb-6 animate-fade-in-up">
-                  <div className="relative overflow-hidden rounded-lg border border-cyan-500/50 bg-cyan-950/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] p-3 flex items-center justify-between">
+                  <div className="relative overflow-hidden rounded-full border border-cyan-500/50 bg-cyan-950/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] py-2 px-4 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.3)]">
-                              <Shield className="w-5 h-5" />
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shadow-[0_0_5px_rgba(6,182,212,0.3)]">
+                              <Shield className="w-3.5 h-3.5" />
                           </div>
                           <div>
                               <div className="flex items-center gap-2">
-                                  <h3 className="font-orbitron font-bold text-white text-sm tracking-wider">PROTEÇÃO BASE</h3>
+                                  <h3 className="font-orbitron font-bold text-white text-xs tracking-wider">PROTEÇÃO BASE</h3>
                                   <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>
                               </div>
-                              <p className="text-[10px] text-cyan-200/70">432Hz Blindagem Ativa</p>
                           </div>
                       </div>
                       
                       <button 
                           onClick={() => setGuardianEnabledByUser(false)}
-                          className="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-900/30 border border-cyan-500/30 hover:bg-red-900/30 hover:border-red-500/50 transition-all"
+                          className="group flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-900/30 border border-cyan-500/30 hover:bg-red-900/30 hover:border-red-500/50 transition-all"
                       >
                           <span className="text-[10px] font-bold text-cyan-300 group-hover:text-red-300 transition-colors uppercase">Desativar</span>
-                          <div className="w-6 h-3.5 rounded-full bg-cyan-500/20 border border-cyan-500/50 relative group-hover:border-red-500/50 transition-colors">
-                              <div className="absolute top-0.5 right-0.5 w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_5px_cyan] group-hover:bg-red-400 group-hover:shadow-[0_0_5px_red] transition-all"></div>
+                          <div className="w-5 h-2.5 rounded-full bg-cyan-500/20 border border-cyan-500/50 relative group-hover:border-red-500/50 transition-colors">
+                              <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_5px_cyan] group-hover:bg-red-400 group-hover:shadow-[0_0_5px_red] transition-all"></div>
                           </div>
                       </button>
                   </div>
@@ -1445,15 +1445,15 @@ const App: React.FC = () => {
                     </button>
 
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3 mb-1 mt-3">
-                            <h3 className={`font-rajdhani font-bold text-lg leading-tight line-clamp-2 ${isActive ? 'text-white' : 'text-slate-200'}`}>
+                        <div className="flex justify-between items-start w-full">
+                            <h3 className={`font-rajdhani font-bold text-lg leading-tight line-clamp-2 mr-2 ${isActive ? 'text-white' : 'text-slate-200'}`}>
                                 {freq.name}
                             </h3>
-                            <span className={`flex items-center justify-center text-[10px] px-2 py-0.5 rounded-full border bg-opacity-20 whitespace-nowrap flex-shrink-0 ml-auto mt-0.5 ${isActive ? 'border-white/30 text-white' : 'border-slate-700 text-slate-500'}`}>
+                            <span className={`flex items-center justify-center text-[10px] px-2 py-0.5 rounded-full border bg-opacity-20 whitespace-nowrap flex-shrink-0 mt-1 ${isActive ? 'border-white/30 text-white' : 'border-slate-700 text-slate-500'}`}>
                                 {freq.hz} Hz
                             </span>
                         </div>
-                        <p className={`text-xs leading-relaxed line-clamp-2 ${isActive ? 'text-slate-200' : 'text-slate-400'}`}>
+                        <p className={`text-xs leading-relaxed line-clamp-2 mt-1 ${isActive ? 'text-slate-200' : 'text-slate-400'}`}>
                             {freq.description}
                         </p>
                     </div>
