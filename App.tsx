@@ -613,12 +613,18 @@ const App: React.FC = () => {
             Sintonia de Alta Frequência
           </p>
 
-          <div className="bg-slate-900/60 border border-cyan-500/20 p-6 rounded-2xl max-w-sm w-full mb-8 backdrop-blur-md shadow-[0_0_50px_rgba(6,182,212,0.05)] transition-all duration-500">
-              <div className="flex items-center justify-center gap-2 text-cyan-400 mb-4 font-bold tracking-wider text-xs uppercase">
+          <div className="bg-slate-900/60 border border-cyan-500/20 p-6 rounded-2xl max-w-sm w-full mb-6 backdrop-blur-md shadow-[0_0_50px_rgba(6,182,212,0.05)] transition-all duration-500">
+              <div className="flex items-center justify-center gap-2 text-cyan-400 mb-0 font-bold tracking-wider text-xs uppercase">
                   <ShieldCheck className="w-5 h-5" />
                   <span>BLINDAGEM VIBRACIONAL</span>
               </div>
           </div>
+
+          <p className="text-slate-400 text-xs md:text-sm max-w-xs mx-auto leading-relaxed mb-8 opacity-80">
+             Acesse o campo de <span className="text-cyan-200 font-bold">Potencial Infinito</span>.
+             Aqui, o som não é apenas ouvido, é <span className="text-cyan-200 font-bold">sentido</span>.
+             Sua frequência original será restaurada.
+          </p>
 
           <button
             onClick={handleStart}
