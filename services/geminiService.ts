@@ -162,10 +162,8 @@ export const generateFrequenciesFromIntent = async (intent: string, category: Fr
 
   try {
     // LAZY INITIALIZATION - Prevents crash on load
-    const genAI = new GoogleGenAI({ apiKey: apiKey });
-    // Use gemini-2.5-flash for speed and thinking capability
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     let promptContext = "";
     
     if (category === FrequencyCategory.HYPER_MATRIX) {
@@ -199,7 +197,8 @@ export const generateFrequenciesFromIntent = async (intent: string, category: Fr
       - description: string
     `;
 
-    const response = await model.generateContent({
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
