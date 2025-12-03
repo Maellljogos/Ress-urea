@@ -651,7 +651,7 @@ const App: React.FC = () => {
   // --- RENDER: LANDING PAGE & TRANSITION ---
   if (!hasStarted) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center relative overflow-hidden bg-[#020617] text-center">
+      <div className="fixed inset-0 overflow-hidden bg-[#020617] text-center flex flex-col items-center justify-center">
         {/* BACKGROUND */}
         <div className="absolute inset-0 bg-[#020617]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.05),transparent_70%)] animate-pulse" style={{ animationDuration: '6s' }}></div>
@@ -706,7 +706,7 @@ const App: React.FC = () => {
                         <p className="text-base text-slate-200 font-rajdhani font-bold drop-shadow-md">
                             Acesse o <span className="text-cyan-300 glow-text-cyan">Campo de Potencial Infinito</span>.
                         </p>
-                        <p className="text-xs text-slate-200 font-medium tracking-wide leading-relaxed opacity-100 drop-shadow-sm">
+                        <p className="text-sm text-slate-200 font-medium tracking-wide leading-relaxed opacity-100 drop-shadow-sm">
                             Ao ativar a ressonância, uma cúpula de harmonização envolverá seu campo, garantindo paz e segurança total.
                         </p>
                     </div>
@@ -987,7 +987,7 @@ const App: React.FC = () => {
                       onClick={() => handleCategoryChange('All')}
                       className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                           selectedCategory === 'All' 
-                          ? 'bg-slate-100 text-slate-900 border-0 shadow-[0_0_15px_rgba(255,255,255,0.2)] scale-105' 
+                          ? 'bg-slate-100 text-slate-900 shadow-[0_0_15px_rgba(255,255,255,0.2)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
                       }`}
                   >
@@ -999,7 +999,7 @@ const App: React.FC = () => {
                       onClick={() => handleCategoryChange('ATIVOS')}
                       className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                           isAtivosSelected
-                            ? 'bg-amber-950/40 text-amber-100 border-0 shadow-[0_0_15px_rgba(245,158,11,0.5)] scale-105'
+                            ? 'bg-amber-950/40 text-amber-100 shadow-[0_0_15px_rgba(245,158,11,0.5)] scale-105'
                             : isAtivosHighlighted
                                 ? 'bg-amber-950/20 text-amber-500 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)] animate-pulse scale-100'
                                 : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
@@ -1019,7 +1019,7 @@ const App: React.FC = () => {
                       onClick={() => handleCategoryChange('RECENTES')}
                       className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center gap-2 hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                           selectedCategory === 'RECENTES' 
-                          ? 'bg-purple-900/30 text-purple-200 border-0 shadow-[0_0_10px_rgba(168,85,247,0.3)] scale-105' 
+                          ? 'bg-purple-900/30 text-purple-200 shadow-[0_0_10px_rgba(168,85,247,0.3)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
                       }`}
                   >
@@ -1030,7 +1030,7 @@ const App: React.FC = () => {
                       onClick={() => handleCategoryChange('FAVORITOS')}
                       className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center gap-2 hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                           selectedCategory === 'FAVORITOS' 
-                          ? 'bg-rose-900/30 text-rose-200 border-0 shadow-[0_0_10px_rgba(244,63,94,0.3)] scale-105' 
+                          ? 'bg-rose-900/30 text-rose-200 shadow-[0_0_10px_rgba(244,63,94,0.3)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
                       }`}
                   >
@@ -1050,7 +1050,7 @@ const App: React.FC = () => {
                               onClick={() => handleCategoryChange(cat)}
                               className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                                   isSelected 
-                                  ? `bg-gradient-to-r ${theme.gradient} ${textColor} border-0 shadow-lg scale-105` 
+                                  ? `bg-gradient-to-r ${theme.gradient} ${textColor} shadow-lg scale-105` 
                                   : `bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500`
                               }`}
                           >
@@ -1445,16 +1445,16 @@ const App: React.FC = () => {
                         )}
                     </button>
 
-                    <div className="flex-1 min-w-0 flex flex-col h-full">
-                        <div className="flex justify-between items-start w-full gap-2 pr-2 mb-1">
-                            <h3 className={`font-rajdhani font-bold text-base leading-tight break-words ${isActive ? 'text-white' : 'text-slate-200'}`}>
+                    <div className="flex-1 min-w-0 flex flex-col h-full items-center justify-center">
+                        <div className="flex justify-between items-center w-full gap-2 pr-2 mb-1">
+                            <h3 className={`font-rajdhani font-extrabold text-lg leading-tight break-words ${isActive ? 'text-white' : 'text-slate-100'}`}>
                                 {freq.name}
                             </h3>
                             <span className={`flex items-center justify-center text-[11px] font-bold px-2 py-0.5 rounded-full border bg-opacity-20 whitespace-nowrap flex-shrink-0 mt-0.5 ${isActive ? 'border-white/30 text-white' : 'border-slate-700 text-slate-500'}`}>
                                 {freq.hz} Hz
                             </span>
                         </div>
-                        <p className={`text-sm leading-relaxed font-medium break-words ${isActive ? 'text-slate-200' : 'text-slate-300'}`}>
+                        <p className={`text-sm leading-relaxed font-medium break-words w-full ${isActive ? 'text-slate-200' : 'text-slate-300'}`}>
                             {freq.description}
                         </p>
                     </div>
