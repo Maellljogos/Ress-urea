@@ -651,7 +651,7 @@ const App: React.FC = () => {
   // --- RENDER: LANDING PAGE & TRANSITION ---
   if (!hasStarted) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center relative overflow-hidden bg-[#020617] text-center">
+      <div className="h-screen w-screen flex items-center justify-center relative overflow-hidden bg-[#020617] text-center">
         {/* BACKGROUND */}
         <div className="absolute inset-0 bg-[#020617]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.05),transparent_70%)] animate-pulse" style={{ animationDuration: '6s' }}></div>
@@ -679,7 +679,7 @@ const App: React.FC = () => {
                  </div>
              </div>
         ) : (
-             <div className="relative z-10 flex flex-col items-center w-full max-w-md animate-fade-in-up h-full justify-center">
+             <div className="relative z-10 flex flex-col items-center w-full max-w-md animate-fade-in-up justify-center">
                 
                 {/* Visualizer - Lifted Up */}
                 <div className="scale-75 h-[280px] flex items-center justify-center -mt-10">
@@ -703,7 +703,7 @@ const App: React.FC = () => {
                     </div>
                     
                     <div className="space-y-3">
-                        <p className="text-base text-white font-rajdhani font-bold drop-shadow-md">
+                        <p className="text-base text-slate-200 font-rajdhani font-bold drop-shadow-md">
                             Acesse o <span className="text-cyan-300 glow-text-cyan">Campo de Potencial Infinito</span>.
                         </p>
                         <p className="text-xs text-slate-200 font-medium tracking-wide leading-relaxed opacity-100 drop-shadow-sm">
@@ -1023,7 +1023,7 @@ const App: React.FC = () => {
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
                       }`}
                   >
-                      <History className="w-3.5 h-3.5 text-purple-400" /> RECENTES
+                      <X className="w-3.5 h-3.5 text-purple-400" /> RECENTES
                   </button>
 
                   <button
@@ -1425,11 +1425,11 @@ const App: React.FC = () => {
                 </div>
             )}
 
-            <div className={`p-4 flex items-start justify-between relative z-10 ${isSelectionMode ? 'pointer-events-none' : ''} h-full`}>
-                <div className="flex items-start gap-4 flex-1 min-w-0">
+            <div className={`p-4 flex items-center justify-between relative z-10 ${isSelectionMode ? 'pointer-events-none' : ''} h-full`}>
+                <div className="flex items-center gap-4 flex-1 min-w-0">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleFrequency(freq); }}
-                      className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-700 shadow-lg border border-white/10 mt-1 ${
+                      className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-700 shadow-lg border border-white/10 ${
                           isActive 
                           ? `bg-gradient-to-br ${theme.gradient} text-white scale-110 shadow-[0_0_15px_rgba(255,255,255,0.3)]` 
                           : 'bg-slate-800 text-slate-500 group-hover:bg-slate-700'
@@ -1450,11 +1450,11 @@ const App: React.FC = () => {
                             <h3 className={`font-rajdhani font-bold text-base leading-tight break-words ${isActive ? 'text-white' : 'text-slate-200'}`}>
                                 {freq.name}
                             </h3>
-                            <span className={`flex items-center justify-center text-[9px] px-1.5 py-0.5 rounded-full border bg-opacity-20 whitespace-nowrap flex-shrink-0 mt-0.5 ${isActive ? 'border-white/30 text-white' : 'border-slate-700 text-slate-500'}`}>
+                            <span className={`flex items-center justify-center text-[11px] font-bold px-2 py-0.5 rounded-full border bg-opacity-20 whitespace-nowrap flex-shrink-0 mt-0.5 ${isActive ? 'border-white/30 text-white' : 'border-slate-700 text-slate-500'}`}>
                                 {freq.hz} Hz
                             </span>
                         </div>
-                        <p className={`text-xs leading-relaxed font-medium break-words ${isActive ? 'text-slate-200' : 'text-slate-300'}`}>
+                        <p className={`text-sm leading-relaxed font-medium break-words ${isActive ? 'text-slate-200' : 'text-slate-300'}`}>
                             {freq.description}
                         </p>
                     </div>
