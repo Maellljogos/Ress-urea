@@ -445,12 +445,12 @@ const App: React.FC = () => {
     audioEngine.init();
     audioEngine.enableBackgroundMode();
 
-    setTimeout(() => setTransitionStep(1), 500); // "Initializing"
-    setTimeout(() => setTransitionStep(2), 1500); // "Tuning"
+    setTimeout(() => setTransitionStep(1), 1500); // "Initializing" (Slower)
+    setTimeout(() => setTransitionStep(2), 3000); // "Tuning" (Slower)
     setTimeout(() => {
         setHasStarted(true);
         setIsTransitioning(false);
-    }, 2500); 
+    }, 4500); // 4.5s transition
   };
 
   const handleBackToStart = () => {
@@ -651,7 +651,7 @@ const App: React.FC = () => {
   // --- RENDER: LANDING PAGE & TRANSITION ---
   if (!hasStarted) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center relative overflow-hidden bg-[#020617] text-center">
+      <div className="h-screen w-full flex flex-col items-center justify-center relative overflow-hidden bg-[#020617] text-center pb-12">
         {/* BACKGROUND */}
         <div className="absolute inset-0 bg-[#020617]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.05),transparent_70%)] animate-pulse" style={{ animationDuration: '6s' }}></div>
@@ -675,19 +675,19 @@ const App: React.FC = () => {
                  </div>
                  
                  <div className="w-64 h-0.5 bg-slate-800 rounded-full overflow-hidden">
-                     <div className="h-full bg-cyan-400 animate-[width_2.5s_ease-out_forwards]" style={{ width: '100%' }}></div>
+                     <div className="h-full bg-cyan-400 animate-[width_4.5s_ease-out_forwards]" style={{ width: '100%' }}></div>
                  </div>
              </div>
         ) : (
              <div className="relative z-10 flex flex-col items-center w-full max-w-md animate-fade-in-up h-full justify-center">
                 
-                {/* Visualizer - Organized Layout */}
-                <div className="scale-75 h-[280px] flex items-center justify-center">
+                {/* Visualizer - Lifted Up */}
+                <div className="scale-75 h-[280px] flex items-center justify-center -mt-10">
                    <Visualizer isActive={false} forceAnimate={true} speedMultiplier={0.3} breathDuration="10s" />
                 </div>
 
-                <div className="flex flex-col items-center gap-1 mb-6 -mt-4">
-                    <h1 className="text-4xl md:text-5xl font-orbitron font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-cyan-100 to-slate-100 glow-text-cyan">
+                <div className="flex flex-col items-center gap-1 mb-4 -mt-4 transform-gpu">
+                    <h1 className="text-4xl md:text-5xl font-orbitron font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-cyan-100 to-slate-100 glow-text-cyan drop-shadow-[0_0_10px_rgba(34,211,238,0.3)]">
                     RESSAUREA
                     </h1>
                     
@@ -696,17 +696,17 @@ const App: React.FC = () => {
                     </p>
                 </div>
 
-                <div className="bg-slate-900/80 border border-cyan-500/20 px-6 py-4 rounded-xl max-w-xs w-full backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.05)] mb-8 text-center">
+                <div className="bg-slate-900/90 border border-cyan-500/30 px-6 py-5 rounded-xl max-w-xs w-full backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.08)] mb-5 text-center transform-gpu">
                     <div className="flex items-center justify-center gap-2 text-cyan-400 font-bold tracking-wider text-[10px] uppercase mb-3">
                         <ShieldCheck className="w-4 h-4" />
                         <span>BLINDAGEM VIBRACIONAL</span>
                     </div>
                     
-                    <div className="space-y-2">
-                        <p className="text-base text-slate-200 font-rajdhani font-medium">
-                            Acesse o <span className="text-cyan-300 font-bold glow-text-cyan">Campo de Potencial Infinito</span>.
+                    <div className="space-y-3">
+                        <p className="text-base text-white font-rajdhani font-bold drop-shadow-md">
+                            Acesse o <span className="text-cyan-300 glow-text-cyan">Campo de Potencial Infinito</span>.
                         </p>
-                        <p className="text-[10px] text-slate-400 font-light tracking-wide leading-relaxed">
+                        <p className="text-xs text-slate-200 font-medium tracking-wide leading-relaxed opacity-100 drop-shadow-sm">
                             Ao ativar a ressonância, uma cúpula de harmonização envolverá seu campo, garantindo paz e segurança total.
                         </p>
                     </div>
@@ -714,7 +714,7 @@ const App: React.FC = () => {
 
                 <button
                   onClick={handleEnterApp}
-                  className="group relative px-12 py-3 bg-transparent overflow-hidden rounded-full transition-all duration-500 hover:scale-105"
+                  className="group relative px-12 py-3 bg-transparent overflow-hidden rounded-full transition-all duration-500 hover:scale-105 transform-gpu"
                 >
                   <div className="absolute inset-0 border border-cyan-500/30 rounded-full"></div>
                   <div className="absolute inset-0 bg-cyan-500/10 blur-xl group-hover:bg-cyan-500/20 transition-all duration-500"></div>
@@ -737,7 +737,7 @@ const App: React.FC = () => {
   const isAtivosSelected = selectedCategory === 'ATIVOS';
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200 selection:bg-cyan-500/30 relative overflow-hidden font-rajdhani antialiased">
+    <div className="min-h-screen bg-[#020617] text-slate-200 selection:bg-cyan-500/30 relative overflow-hidden font-rajdhani antialiased animate-fade-in-slow">
       
       <video 
          ref={videoRef}
@@ -985,7 +985,7 @@ const App: React.FC = () => {
                   <div className="pl-0"></div>
                   <button
                       onClick={() => handleCategoryChange('All')}
-                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center hover:scale-105 ${
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                           selectedCategory === 'All' 
                           ? 'bg-slate-100 text-slate-900 border-slate-100 shadow-[0_0_15px_rgba(255,255,255,0.2)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
@@ -997,7 +997,7 @@ const App: React.FC = () => {
                   {/* ATIVOS (PLAYING) CATEGORY */}
                   <button
                       onClick={() => handleCategoryChange('ATIVOS')}
-                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center gap-2 hover:scale-105 ${
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center gap-2 hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                           isAtivosSelected
                             ? 'bg-amber-950/40 text-amber-100 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] scale-105'
                             : isAtivosHighlighted
@@ -1012,7 +1012,7 @@ const App: React.FC = () => {
                   {/* RECENTES (HISTORY) CATEGORY */}
                   <button
                       onClick={() => handleCategoryChange('RECENTES')}
-                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center gap-2 hover:scale-105 ${
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center gap-2 hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                           selectedCategory === 'RECENTES' 
                           ? 'bg-purple-900/30 text-purple-200 border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.3)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
@@ -1023,7 +1023,7 @@ const App: React.FC = () => {
 
                   <button
                       onClick={() => handleCategoryChange('FAVORITOS')}
-                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center gap-2 hover:scale-105 ${
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center gap-2 hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                           selectedCategory === 'FAVORITOS' 
                           ? 'bg-rose-900/30 text-rose-200 border-rose-500/50 shadow-[0_0_10px_rgba(244,63,94,0.3)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
@@ -1043,7 +1043,7 @@ const App: React.FC = () => {
                           <button
                               key={cat}
                               onClick={() => handleCategoryChange(cat)}
-                              className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center hover:scale-105 ${
+                              className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                                   isSelected 
                                   ? `bg-gradient-to-r ${theme.gradient} ${textColor} border-transparent shadow-lg scale-105` 
                                   : `bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500`
@@ -1238,7 +1238,7 @@ const App: React.FC = () => {
                                 className="p-2.5 text-red-400 hover:bg-red-900/20 rounded-full transition-all"
                                 title={selectedCategory === 'RECENTES' ? "Remover do Histórico" : "Apagar Selecionados"}
                             >
-                                <Trash2 className="w-5 h-5" />
+                                {selectedCategory === 'RECENTES' ? <X className="w-5 h-5" /> : <Trash2 className="w-5 h-5" />}
                             </button>
                           </>
                       )}
@@ -1387,7 +1387,7 @@ const App: React.FC = () => {
             key={freq.id}
             id={freq.id}
             onClick={() => isSelectionMode && toggleSelection(freq.id)}
-            className={`relative overflow-hidden rounded-lg border transition-all duration-500 group ${
+            className={`relative overflow-hidden rounded-lg border transition-all duration-500 group transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                 isSelectionMode 
                    ? isSelectedForDelete 
                        ? 'bg-cyan-900/30 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)] scale-[0.98]' 
@@ -1401,11 +1401,12 @@ const App: React.FC = () => {
                 <div className={`absolute inset-0 bg-gradient-to-r ${theme.gradient} opacity-5`}></div>
             )}
 
-            {/* CONFLICT WARNING OVERLAY */}
+            {/* CONFLICT WARNING OVERLAY (IMPROVED POSITIONING) */}
             {isConflicting && !isSelectionMode && isActive && (
-                 <div className="absolute top-0 right-0 z-30 p-2">
-                     <div className="bg-amber-500 text-black text-[9px] font-bold px-2 py-1 rounded-full animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.5)] border border-amber-300 flex items-center gap-1">
-                         <AlertTriangle className="w-3 h-3" /> CONFLITO ENERGÉTICO
+                 <div className="absolute top-2 right-2 z-40">
+                     <div className="bg-amber-500/90 backdrop-blur-md text-black text-[9px] font-bold px-3 py-1.5 rounded-full animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.6)] border border-amber-300 flex items-center gap-1.5 transform-gpu">
+                         <AlertTriangle className="w-3 h-3" />
+                         <span>CONFLITO</span>
                      </div>
                  </div>
             )}
@@ -1439,7 +1440,7 @@ const App: React.FC = () => {
                     </button>
 
                     <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start w-full gap-2">
+                        <div className="flex justify-between items-start w-full gap-2 pr-2">
                             <h3 className={`font-rajdhani font-bold text-base leading-tight line-clamp-2 ${isActive ? 'text-white' : 'text-slate-200'}`}>
                                 {freq.name}
                             </h3>
@@ -1447,7 +1448,7 @@ const App: React.FC = () => {
                                 {freq.hz} Hz
                             </span>
                         </div>
-                        <p className={`text-[10px] leading-relaxed line-clamp-2 mt-1 ${isActive ? 'text-slate-200' : 'text-slate-400'}`}>
+                        <p className={`text-xs leading-relaxed line-clamp-2 mt-1.5 font-medium ${isActive ? 'text-slate-200' : 'text-slate-300'}`}>
                             {freq.description}
                         </p>
                     </div>
@@ -1479,7 +1480,7 @@ const App: React.FC = () => {
                         className="p-1.5 rounded-full text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition-colors"
                         title={selectedCategory === 'RECENTES' ? "Remover do Histórico" : "Apagar Frequência"}
                     >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        {selectedCategory === 'RECENTES' ? <X className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
                     </button>
                 </div>
             </div>
