@@ -679,7 +679,7 @@ const App: React.FC = () => {
                  </div>
              </div>
         ) : (
-             <div className="relative z-10 flex flex-col items-center w-full max-w-md animate-fade-in-up justify-center">
+             <div className="relative z-10 flex flex-col items-center w-full max-w-md animate-fade-in-up justify-center h-full">
                 
                 {/* Visualizer - Lifted Up */}
                 <div className="scale-75 h-[280px] flex items-center justify-center -mt-10">
@@ -703,7 +703,7 @@ const App: React.FC = () => {
                     </div>
                     
                     <div className="space-y-3">
-                        <p className="text-base text-slate-200 font-rajdhani font-bold drop-shadow-md">
+                        <p className="text-lg text-slate-200 font-rajdhani font-extrabold drop-shadow-md">
                             Acesse o <span className="text-cyan-300 glow-text-cyan">Campo de Potencial Infinito</span>.
                         </p>
                         <p className="text-sm text-slate-200 font-medium tracking-wide leading-relaxed opacity-100 drop-shadow-sm">
@@ -737,7 +737,7 @@ const App: React.FC = () => {
   const isAtivosSelected = selectedCategory === 'ATIVOS';
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200 selection:bg-cyan-500/30 relative overflow-hidden font-rajdhani antialiased animate-fade-in-slow">
+    <div className="min-h-screen bg-[#020617] text-slate-200 selection:bg-cyan-500/30 relative overflow-hidden font-rajdhani antialiased">
       
       <video 
          ref={videoRef}
@@ -825,6 +825,8 @@ const App: React.FC = () => {
           </div>
       )}
 
+    {/* CONTENT WRAPPER WITH ANIMATION */}
+    <div className="animate-fade-in-slow">
       {/* HEADER */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#020617]/95 backdrop-blur-md border-b border-white/5 h-16 flex items-center px-8 justify-between">
          <div className="flex items-center gap-4">
@@ -1082,18 +1084,16 @@ const App: React.FC = () => {
               </div>
 
               {/* RECENTS HEADER ACTIONS */}
-              {selectedCategory === 'RECENTES' && recentFrequencies.length > 0 && !isSelectionMode && (
-                  <div className="flex justify-start mb-2">
-                       <button 
-                           onClick={clearRecents}
-                           className="flex items-center gap-2 text-[11px] font-bold text-slate-500 hover:text-red-400 bg-transparent px-2 py-1 transition-all group"
-                       >
-                           <Eraser className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" /> Limpar Histórico
-                       </button>
-                  </div>
-              )}
+              <div className="flex justify-end h-8 items-center gap-3">
+                   {selectedCategory === 'RECENTES' && recentFrequencies.length > 0 && !isSelectionMode && (
+                        <button 
+                            onClick={clearRecents}
+                            className="flex items-center gap-2 text-[11px] font-bold text-slate-500 hover:text-red-400 bg-transparent px-2 py-1 transition-all group"
+                        >
+                            <Eraser className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" /> Limpar Histórico
+                        </button>
+                   )}
 
-              <div className="flex justify-end h-8 items-center">
                    {!isSelectionMode ? (
                        <button 
                            onClick={() => {
@@ -1195,8 +1195,9 @@ const App: React.FC = () => {
           )}
         </div>
       </main>
+      </div> {/* End of animate-fade-in-slow wrapper */}
 
-      {/* --- FLOATING UNIFIED ACTION BAR (BOTTOM DOCK) --- */}
+      {/* --- FLOATING UNIFIED ACTION BAR (BOTTOM DOCK) - FIXED POSITIONING FIX --- */}
       {isSelectionMode && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] animate-fade-in-up w-auto max-w-[95vw]">
               <div className="flex items-center bg-slate-900/90 backdrop-blur-xl border border-slate-700 rounded-full shadow-2xl p-1 gap-1">
@@ -1239,7 +1240,19 @@ const App: React.FC = () => {
                             )}
                             
                             <button 
-                                onClick={() => setShowDeleteConfirm(true)}
+                                onClick={() => {
+                                    if (selectedCategory === 'RECENTES') {
+                                        // Direct delete for multiple selection in Recents? 
+                                        // The user only specified "no msg" for the X button (single delete). 
+                                        // For bulk delete, usually a confirmation is still good, BUT to be consistent with "Limpar Historico" logic,
+                                        // let's just trigger the delete without modal if that's the vibe, or keep modal for bulk.
+                                        // User said: "E também nem precisa da msg no x dos cartões... só na lixeirinha ai sim."
+                                        // This implies the TRASH icon (bulk delete) SHOULD have a message.
+                                        setShowDeleteConfirm(true); 
+                                    } else {
+                                        setShowDeleteConfirm(true);
+                                    }
+                                }}
                                 className="p-2.5 text-red-400 hover:bg-red-900/20 rounded-full transition-all"
                                 title={selectedCategory === 'RECENTES' ? "Remover do Histórico" : "Apagar Selecionados"}
                             >
@@ -1480,8 +1493,13 @@ const App: React.FC = () => {
                     <button 
                         onClick={(e) => { 
                             e.stopPropagation(); 
-                            setSingleDeleteId(freq.id); 
-                            setShowDeleteConfirm(true); 
+                            if (selectedCategory === 'RECENTES') {
+                                // Direct remove for single item in Recents
+                                removeFromRecents(freq.id);
+                            } else {
+                                setSingleDeleteId(freq.id); 
+                                setShowDeleteConfirm(true); 
+                            }
                         }}
                         className="p-1.5 rounded-full text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition-colors"
                         title={selectedCategory === 'RECENTES' ? "Remover do Histórico" : "Apagar Frequência"}
