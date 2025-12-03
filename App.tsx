@@ -35,10 +35,9 @@ import {
   MousePointerClick,
   Disc,
   Shield,
-  Zap,
-  Sparkles,
   History,
-  Eraser
+  Eraser,
+  Clock
 } from 'lucide-react';
 import { PRESET_FREQUENCIES, CATEGORIES, GUARDIAN_FREQUENCY, REACTOR_FREQUENCY, REACTOR_MODES, UPLIFT_FREQUENCY } from './constants';
 import { Frequency, FrequencyCategory } from './types';
@@ -95,6 +94,7 @@ const App: React.FC = () => {
   const [showSuccessMsg, setShowSuccessMsg] = useState(false);
   const [networkMsg, setNetworkMsg] = useState<{show: boolean, msg: string, type: 'success' | 'warning'}>({show: false, msg: '', type: 'success'});
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
+  const [conflictingIds, setConflictingIds] = useState<string[]>([]); // State for card-specific warnings
 
   // Guardian Toggle State
   const [guardianEnabledByUser, setGuardianEnabledByUser] = useState(true);
@@ -217,15 +217,21 @@ const App: React.FC = () => {
   };
 
   const addToRecents = (id: string) => {
-      // Avoid Guardian adding to history visually to keep it clean, or allow it? Let's allow only normal freqs
       if (id === GUARDIAN_FREQUENCY.id) return;
       
       let newRecents = [id, ...recentFrequencies.filter(rId => rId !== id)];
-      // Limit to last 20
-      if (newRecents.length > 20) newRecents = newRecents.slice(0, 20);
+      if (newRecents.length > 50) newRecents = newRecents.slice(0, 50); // Increased limit
       
       setRecentFrequencies(newRecents);
       localStorage.setItem('quantum_recents', JSON.stringify(newRecents));
+  };
+
+  const removeFromRecents = (idToRemove: string) => {
+      const newRecents = recentFrequencies.filter(id => id !== idToRemove);
+      setRecentFrequencies(newRecents);
+      localStorage.setItem('quantum_recents', JSON.stringify(newRecents));
+      setSingleDeleteId(null);
+      setShowDeleteConfirm(false);
   };
 
   const clearRecents = () => {
@@ -285,7 +291,7 @@ const App: React.FC = () => {
   };
 
   const performDelete = (idsToDelete: string[]) => {
-      // If in RECENTES mode, we just remove from history, NOT delete the freq
+      // If in RECENTES mode, we just remove from history
       if (selectedCategory === 'RECENTES') {
           const newRecents = recentFrequencies.filter(id => !idsToDelete.includes(id));
           setRecentFrequencies(newRecents);
@@ -333,7 +339,11 @@ const App: React.FC = () => {
 
   const handleDeleteSelected = () => {
       if (singleDeleteId) {
-          performDelete([singleDeleteId]);
+          if (selectedCategory === 'RECENTES') {
+              removeFromRecents(singleDeleteId);
+          } else {
+              performDelete([singleDeleteId]);
+          }
       } else if (selectedItems.size > 0) {
           performDelete(Array.from(selectedItems));
       }
@@ -354,9 +364,10 @@ const App: React.FC = () => {
       } else if (selectedCategory === 'FAVORITOS') {
           result = visibleFrequencies.filter(f => favorites.includes(f.id));
       } else if (selectedCategory === 'RECENTES') {
-          // Filter by recents list and SORT by recents order
-          result = visibleFrequencies.filter(f => recentFrequencies.includes(f.id));
-          result.sort((a, b) => recentFrequencies.indexOf(a.id) - recentFrequencies.indexOf(b.id));
+          // Map recents by ID to get the full object, keeping order
+          result = recentFrequencies
+              .map(id => visibleFrequencies.find(f => f.id === id))
+              .filter(Boolean) as Frequency[];
       } else if (selectedCategory === 'ATIVOS') {
           result = visibleFrequencies.filter(f => activeFrequencies.includes(f.id));
       } else {
@@ -406,32 +417,26 @@ const App: React.FC = () => {
     }
   }, [activeFrequencies, guardianEnabledByUser, isPlaying, hasStarted, allFrequencies, guardianActive]);
 
-  // Conflict Detection
+  // Conflict Detection on Specific Cards
   useEffect(() => {
-    if (conflictTimeoutRef.current) {
-        clearTimeout(conflictTimeoutRef.current);
-        conflictTimeoutRef.current = null;
+    if (activeFrequencies.length < 2) {
+        setConflictingIds([]);
+        return;
     }
-    setNetworkMsg(prev => prev.type === 'warning' ? { ...prev, show: false } : prev);
-
-    if (activeFrequencies.length < 2) return;
 
     const activeObjs = activeFrequencies.map(id => {
-        if (id === REACTOR_FREQUENCY.id) return { category: FrequencyCategory.HYPER_MATRIX }; 
+        if (id === REACTOR_FREQUENCY.id) return { id, category: FrequencyCategory.HYPER_MATRIX }; 
         return allFrequencies.find(f => f.id === id);
     }).filter(Boolean);
 
-    const hasSleepOrRelax = activeObjs.some(f => f && (f.category === FrequencyCategory.SLEEP));
-    const hasHighEnergy = activeObjs.some(f => f && (f.category === FrequencyCategory.HYPER_MATRIX || f.category === FrequencyCategory.PERFORMANCE));
+    const sleepFreqs = activeObjs.filter(f => f && f.category === FrequencyCategory.SLEEP);
+    const highEnergyFreqs = activeObjs.filter(f => f && (f.category === FrequencyCategory.HYPER_MATRIX || f.category === FrequencyCategory.PERFORMANCE));
     
-    if (hasSleepOrRelax && hasHighEnergy) {
-        setTimeout(() => {
-            setNetworkMsg({ show: true, msg: 'Conflito Energético: Relaxamento + Alta Atividade.', type: 'warning' });
-            
-            conflictTimeoutRef.current = setTimeout(() => {
-                setNetworkMsg(prev => ({...prev, show: false}));
-            }, 3000); 
-        }, 50);
+    if (sleepFreqs.length > 0 && highEnergyFreqs.length > 0) {
+        const ids = [...sleepFreqs.map(f => f!.id), ...highEnergyFreqs.map(f => f!.id)];
+        setConflictingIds(ids);
+    } else {
+        setConflictingIds([]);
     }
   }, [activeFrequencies, allFrequencies]);
 
@@ -646,7 +651,7 @@ const App: React.FC = () => {
   // --- RENDER: LANDING PAGE & TRANSITION ---
   if (!hasStarted) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center p-4 relative overflow-hidden bg-[#020617] text-center">
+      <div className="h-screen w-full flex flex-col items-center justify-center relative overflow-hidden bg-[#020617] text-center">
         {/* BACKGROUND */}
         <div className="absolute inset-0 bg-[#020617]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.05),transparent_70%)] animate-pulse" style={{ animationDuration: '6s' }}></div>
@@ -674,14 +679,14 @@ const App: React.FC = () => {
                  </div>
              </div>
         ) : (
-             <div className="relative z-10 flex flex-col items-center w-full max-w-md animate-fade-in-up">
+             <div className="relative z-10 flex flex-col items-center w-full max-w-md animate-fade-in-up h-full justify-center">
                 
                 {/* Visualizer - Organized Layout */}
-                <div className="scale-75 h-[280px] flex items-center justify-center mb-2">
+                <div className="scale-75 h-[280px] flex items-center justify-center">
                    <Visualizer isActive={false} forceAnimate={true} speedMultiplier={0.3} breathDuration="10s" />
                 </div>
 
-                <div className="flex flex-col items-center gap-1 mb-6">
+                <div className="flex flex-col items-center gap-1 mb-6 -mt-4">
                     <h1 className="text-4xl md:text-5xl font-orbitron font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-cyan-100 to-slate-100 glow-text-cyan">
                     RESSAUREA
                     </h1>
@@ -691,20 +696,19 @@ const App: React.FC = () => {
                     </p>
                 </div>
 
-                {/* TEXT BLOCK - Grouped tightly */}
-                <div className="space-y-2 max-w-sm mx-auto mb-8">
-                    <p className="text-base text-slate-200 font-rajdhani font-medium">
-                        Acesse o <span className="text-cyan-300 font-bold glow-text-cyan">Campo de Potencial Infinito</span>.
-                    </p>
-                    <p className="text-sm text-slate-400 font-light tracking-wide">
-                        Harmonização quântica, proteção e expansão da consciência em um toque.
-                    </p>
-                </div>
-
-                <div className="bg-slate-900/80 border border-cyan-500/20 px-6 py-3 rounded-xl max-w-xs w-full backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.05)] mb-8">
-                    <div className="flex items-center justify-center gap-2 text-cyan-400 font-bold tracking-wider text-[10px] uppercase">
+                <div className="bg-slate-900/80 border border-cyan-500/20 px-6 py-4 rounded-xl max-w-xs w-full backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.05)] mb-8 text-center">
+                    <div className="flex items-center justify-center gap-2 text-cyan-400 font-bold tracking-wider text-[10px] uppercase mb-3">
                         <ShieldCheck className="w-4 h-4" />
                         <span>BLINDAGEM VIBRACIONAL</span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <p className="text-base text-slate-200 font-rajdhani font-medium">
+                            Acesse o <span className="text-cyan-300 font-bold glow-text-cyan">Campo de Potencial Infinito</span>.
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-light tracking-wide leading-relaxed">
+                            Ao ativar a ressonância, uma cúpula de harmonização envolverá seu campo, garantindo paz e segurança total.
+                        </p>
                     </div>
                 </div>
 
@@ -822,10 +826,10 @@ const App: React.FC = () => {
       )}
 
       {/* HEADER */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#020617]/80 backdrop-blur-md border-b border-white/5 h-16 flex items-center px-4 justify-between">
-         <div className="flex items-center gap-3">
-             <button onClick={() => setShowMenu(true)} className="p-3 text-slate-400 hover:text-white transition-colors">
-                <Menu className="w-5 h-5" />
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#020617]/95 backdrop-blur-md border-b border-white/5 h-16 flex items-center px-8 justify-between">
+         <div className="flex items-center gap-4">
+             <button onClick={() => setShowMenu(true)} className="p-2 text-slate-400 hover:text-white transition-colors">
+                <Menu className="w-6 h-6" />
              </button>
              <h1 className="text-xl font-orbitron font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-cyan-200">
                RESSAUREA
@@ -851,8 +855,8 @@ const App: React.FC = () => {
       </header>
 
       {/* FOOTER PLAYER */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#020617]/90 backdrop-blur-xl border-t border-cyan-500/10 h-16 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.8)] flex items-center">
-         <div className="w-full max-w-4xl mx-auto flex items-center justify-between px-6">
+      <div className="fixed bottom-0 left-0 right-0 bg-[#020617]/95 backdrop-blur-xl border-t border-cyan-500/10 h-20 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.8)] flex items-center">
+         <div className="w-full px-8 flex items-center justify-between">
              <button 
                onClick={toggleAudibleMode}
                className="flex flex-col items-center justify-center gap-1 group w-16 flex-shrink-0"
@@ -868,20 +872,20 @@ const App: React.FC = () => {
              <div className="flex items-center gap-6">
                 <button 
                   onClick={handleStopAll} 
-                  className="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-red-400 transition-all border border-transparent hover:border-red-500/30 hover:bg-red-900/10 flex-shrink-0"
+                  className="w-10 h-10 flex items-center justify-center rounded-full text-slate-500 hover:text-red-400 transition-all border border-transparent hover:border-red-500/30 hover:bg-red-900/10 flex-shrink-0"
                   title="Parar Tudo"
                 >
-                    <Square className="w-3 h-3 fill-current" />
+                    <Square className="w-4 h-4 fill-current" />
                 </button>
                 
                 <button 
                   onClick={togglePlayPauseGlobal}
-                  className="group relative w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 flex-shrink-0"
+                  className="group relative w-14 h-14 rounded-full flex items-center justify-center transition-all hover:scale-105 flex-shrink-0"
                 >
                     <div className="absolute inset-0 rounded-full bg-gradient-to-b from-cyan-400 to-blue-600 opacity-90 blur-sm group-hover:opacity-100 group-hover:blur-md transition-all animate-pulse duration-[3000ms]"></div>
                     <div className="absolute inset-0 rounded-full bg-gradient-to-b from-cyan-500 to-blue-600 shadow-inner border border-white/20"></div>
                     <div className="relative z-10 text-white drop-shadow-md">
-                        {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current pl-0.5" />}
+                        {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current pl-1" />}
                     </div>
                 </button>
              </div>
@@ -901,17 +905,17 @@ const App: React.FC = () => {
       <main className="pt-16 pb-24">
         
         <div className="sticky top-16 z-40 bg-[#020617]/95 backdrop-blur-xl border-b border-white/5 pt-4 pb-0 shadow-2xl">
-           <div className="max-w-6xl mx-auto px-4 space-y-4">
+           <div className="w-full px-8 space-y-4">
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center justify-between bg-gradient-to-r from-cyan-950/40 to-cyan-900/20 p-3 rounded-lg border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
                       <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all duration-500 ${isScalarMode ? 'bg-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.8)]' : 'bg-slate-900 text-cyan-500 border border-cyan-900'}`}>
                               <Infinity className="w-5 h-5" />
                           </div>
                           <div className="flex items-center gap-2">
-                              <div className="text-base md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 to-blue-400">Modo Escalar</div>
-                              <button onClick={() => setShowScalarHelp(true)} className="p-2 text-slate-500 hover:text-cyan-400 rounded-full"><HelpCircle className="w-5 h-5"/></button>
+                              <div className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 to-blue-400">Modo Escalar</div>
+                              <button onClick={() => setShowScalarHelp(true)} className="p-1 text-slate-500 hover:text-cyan-400 rounded-full"><HelpCircle className="w-4 h-4"/></button>
                           </div>
                       </div>
                       <button 
@@ -927,8 +931,8 @@ const App: React.FC = () => {
                               <Atom className={`w-5 h-5 ${isReactorActive ? 'animate-spin' : ''}`} />
                           </div>
                           <div className="flex items-center gap-2">
-                              <div className="text-base md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-200 to-red-400">O Reator</div>
-                              <button onClick={() => setShowReactorHelp(true)} className="p-2 text-slate-500 hover:text-white rounded-full"><HelpCircle className="w-5 h-5"/></button>
+                              <div className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-200 to-red-400">O Reator</div>
+                              <button onClick={() => setShowReactorHelp(true)} className="p-1 text-slate-500 hover:text-white rounded-full"><HelpCircle className="w-4 h-4"/></button>
                           </div>
                       </div>
                       <button 
@@ -976,12 +980,12 @@ const App: React.FC = () => {
                   </div>
               </div>
 
-              {/* CATEGORY LIST - FIXED GAP (gap-4 or gap-[18px]) */}
-              <div className="flex gap-4 overflow-x-auto pt-4 pb-2 px-8 -mx-8 category-scroll items-center w-[calc(100%+4rem)]">
-                  <div className="pl-4"></div>
+              {/* CATEGORY LIST - Spotify Style (Compact) */}
+              <div className="flex gap-[18px] overflow-x-auto pt-4 pb-2 px-8 -mx-8 category-scroll items-center w-[calc(100%+4rem)]">
+                  <div className="pl-0"></div>
                   <button
                       onClick={() => handleCategoryChange('All')}
-                      className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center min-h-[36px] min-w-[80px] hover:scale-105 ${
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center hover:scale-105 ${
                           selectedCategory === 'All' 
                           ? 'bg-slate-100 text-slate-900 border-slate-100 shadow-[0_0_15px_rgba(255,255,255,0.2)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
@@ -993,7 +997,7 @@ const App: React.FC = () => {
                   {/* ATIVOS (PLAYING) CATEGORY */}
                   <button
                       onClick={() => handleCategoryChange('ATIVOS')}
-                      className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center gap-2 min-h-[36px] min-w-[100px] hover:scale-105 ${
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center gap-2 hover:scale-105 ${
                           isAtivosSelected
                             ? 'bg-amber-950/40 text-amber-100 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] scale-105'
                             : isAtivosHighlighted
@@ -1001,31 +1005,31 @@ const App: React.FC = () => {
                                 : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
                       }`}
                   >
-                      <Disc className={`w-4 h-4 ${activeCount > 0 ? 'animate-spin-slow text-amber-400' : ''}`} /> 
+                      <Disc className={`w-3.5 h-3.5 ${activeCount > 0 ? 'animate-spin-slow text-amber-400' : ''}`} /> 
                       ATIVOS ({activeCount})
                   </button>
 
                   {/* RECENTES (HISTORY) CATEGORY */}
                   <button
                       onClick={() => handleCategoryChange('RECENTES')}
-                      className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center gap-2 min-h-[36px] min-w-[100px] hover:scale-105 ${
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center gap-2 hover:scale-105 ${
                           selectedCategory === 'RECENTES' 
                           ? 'bg-purple-900/30 text-purple-200 border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.3)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
                       }`}
                   >
-                      <History className="w-3 h-3 text-purple-400" /> RECENTES
+                      <History className="w-3.5 h-3.5 text-purple-400" /> RECENTES
                   </button>
 
                   <button
                       onClick={() => handleCategoryChange('FAVORITOS')}
-                      className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center gap-2 min-h-[36px] min-w-[100px] hover:scale-105 ${
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center gap-2 hover:scale-105 ${
                           selectedCategory === 'FAVORITOS' 
                           ? 'bg-rose-900/30 text-rose-200 border-rose-500/50 shadow-[0_0_10px_rgba(244,63,94,0.3)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
                       }`}
                   >
-                      <Heart className="w-3 h-3 fill-current" /> FAVORITOS
+                      <Heart className="w-3.5 h-3.5 fill-current" /> FAVORITOS
                   </button>
 
                   {CATEGORIES.map(cat => {
@@ -1039,7 +1043,7 @@ const App: React.FC = () => {
                           <button
                               key={cat}
                               onClick={() => handleCategoryChange(cat)}
-                              className={`flex-shrink-0 px-5 py-3 rounded-full whitespace-nowrap text-xs font-bold tracking-wider transition-all border flex items-center justify-center min-h-[36px] hover:scale-105 ${
+                              className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center hover:scale-105 ${
                                   isSelected 
                                   ? `bg-gradient-to-r ${theme.gradient} ${textColor} border-transparent shadow-lg scale-105` 
                                   : `bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500`
@@ -1054,7 +1058,8 @@ const App: React.FC = () => {
            </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-4 pt-6 min-h-[100vh]" ref={listTopRef}>
+        {/* MAIN CONTENT FLUID WIDTH */}
+        <div className="w-full px-8 pt-6 min-h-[100vh]" ref={listTopRef}>
           
           <div className="mb-6 space-y-3">
               <div className="relative group scroll-mt-32">
@@ -1073,17 +1078,17 @@ const App: React.FC = () => {
 
               {/* RECENTS HEADER ACTIONS */}
               {selectedCategory === 'RECENTES' && recentFrequencies.length > 0 && !isSelectionMode && (
-                  <div className="flex justify-end mb-2">
+                  <div className="flex justify-start mb-2">
                        <button 
                            onClick={clearRecents}
-                           className="flex items-center gap-2 text-[10px] font-bold text-slate-500 hover:text-red-400 bg-transparent hover:bg-slate-900 px-3 py-1 rounded-full border border-transparent hover:border-slate-700 transition-all"
+                           className="flex items-center gap-2 text-[11px] font-bold text-slate-500 hover:text-red-400 bg-transparent px-2 py-1 transition-all group"
                        >
-                           <Eraser className="w-3 h-3" /> Limpar Histórico
+                           <Eraser className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" /> Limpar Histórico
                        </button>
                   </div>
               )}
 
-              <div className="flex justify-end h-10 items-center">
+              <div className="flex justify-end h-8 items-center">
                    {!isSelectionMode ? (
                        <button 
                            onClick={() => {
@@ -1108,9 +1113,9 @@ const App: React.FC = () => {
           </div>
 
           {/* === GUARDIAN FREQUENCY BANNER (COMPACT / SLIM REDESIGN) === */}
-          {selectedCategory === 'ATIVOS' && guardianActive && guardianEnabledByUser && (
+          {selectedCategory === 'ATIVOS' && guardianEnabledByUser && (
               <div className="mb-6 animate-fade-in-up">
-                  <div className="relative overflow-hidden rounded-full border border-cyan-500/50 bg-cyan-950/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] py-2 px-4 flex items-center justify-between">
+                  <div className="relative overflow-hidden rounded-lg border border-cyan-500/50 bg-cyan-950/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] py-2 px-4 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                           <div className="w-6 h-6 rounded-full flex items-center justify-center bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shadow-[0_0_5px_rgba(6,182,212,0.3)]">
                               <Shield className="w-3.5 h-3.5" />
@@ -1136,15 +1141,16 @@ const App: React.FC = () => {
               </div>
           )}
 
+          {/* SPOTIFY-LIKE DENSE GRID */}
           {filteredFrequencies.some(f => f.id.startsWith('custom_') || f.id.startsWith('offline_')) && (
              <div className="mb-8">
-                 <div className="flex items-center justify-between mb-4 ml-2">
+                 <div className="flex items-center justify-between mb-4 ml-1">
                     <h3 className="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
                        <Cloud className="w-3 h-3" /> Minhas Frequências (Geradas)
                     </h3>
                  </div>
 
-                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                     {filteredFrequencies.filter(f => f.id.startsWith('custom_') || f.id.startsWith('offline_')).map(freq => renderCard(freq))}
                  </div>
              </div>
@@ -1153,9 +1159,10 @@ const App: React.FC = () => {
           {(selectedCategory !== 'All' || filteredFrequencies.some(f => !f.id.startsWith('custom_') && !f.id.startsWith('offline_'))) && (
               <>
                  {selectedCategory === 'All' && (
-                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 ml-2">Biblioteca do App</h3>
+                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Biblioteca do App</h3>
                  )}
-                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
+                 {/* DENSE GRID LAYOUT */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-20">
                     {filteredFrequencies.filter(f => !f.id.startsWith('custom_') && !f.id.startsWith('offline_')).map(freq => renderCard(freq))}
                  </div>
               </>
@@ -1206,21 +1213,25 @@ const App: React.FC = () => {
 
                       {selectedItems.size > 0 && (
                           <>
-                            <button 
-                                onClick={handleDownloadSelected}
-                                className="p-2.5 text-cyan-400 hover:bg-cyan-900/20 rounded-full transition-all"
-                                title="Baixar Selecionados"
-                            >
-                                <Download className="w-5 h-5" />
-                            </button>
+                            {selectedCategory !== 'RECENTES' && (
+                                <>
+                                    <button 
+                                        onClick={handleDownloadSelected}
+                                        className="p-2.5 text-cyan-400 hover:bg-cyan-900/20 rounded-full transition-all"
+                                        title="Baixar Selecionados"
+                                    >
+                                        <Download className="w-5 h-5" />
+                                    </button>
 
-                            <button 
-                                onClick={handlePlaySelected}
-                                className="p-2.5 text-emerald-400 hover:bg-emerald-900/20 rounded-full transition-all"
-                                title="Tocar Selecionados"
-                            >
-                                <Play className="w-5 h-5 fill-current" />
-                            </button>
+                                    <button 
+                                        onClick={handlePlaySelected}
+                                        className="p-2.5 text-emerald-400 hover:bg-emerald-900/20 rounded-full transition-all"
+                                        title="Tocar Selecionados"
+                                    >
+                                        <Play className="w-5 h-5 fill-current" />
+                                    </button>
+                                </>
+                            )}
                             
                             <button 
                                 onClick={() => setShowDeleteConfirm(true)}
@@ -1260,12 +1271,6 @@ const App: React.FC = () => {
                                  </p>
                              </div>
                         </div>
-                        <button 
-                           onClick={() => setShowTrustModal(true)}
-                           className="text-[10px] text-cyan-400 mt-2 hover:underline"
-                        >
-                           Ver detalhes técnicos
-                        </button>
                      </div>
 
                      <div>
@@ -1280,7 +1285,7 @@ const App: React.FC = () => {
                              
                              <div className="space-y-3">
                                  <label className="flex items-center gap-3 cursor-pointer group">
-                                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${downloadMode === 'auto' ? 'border-cyan-400' : 'border-slate-600'}`}>
+                                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${downloadMode === 'auto' ? 'border-cyan-400' : 'border-slate-600'}`}>
                                          {downloadMode === 'auto' && <div className="w-2 h-2 rounded-full bg-cyan-400"></div>}
                                      </div>
                                      <input type="radio" className="hidden" checked={downloadMode === 'auto'} onChange={() => changeDownloadMode('auto')} />
@@ -1290,7 +1295,7 @@ const App: React.FC = () => {
                                  </label>
 
                                  <label className="flex items-center gap-3 cursor-pointer group">
-                                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${downloadMode === 'ask' ? 'border-cyan-400' : 'border-slate-600'}`}>
+                                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${downloadMode === 'ask' ? 'border-cyan-400' : 'border-slate-600'}`}>
                                          {downloadMode === 'ask' && <div className="w-2 h-2 rounded-full bg-cyan-400"></div>}
                                      </div>
                                      <input type="radio" className="hidden" checked={downloadMode === 'ask'} onChange={() => changeDownloadMode('ask')} />
@@ -1364,121 +1369,6 @@ const App: React.FC = () => {
              {networkMsg.msg}
          </div>
       </div>
-
-      {showReactorHelp && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
-            <div className="bg-slate-950 border border-orange-500/30 rounded-2xl max-w-md w-full p-6 relative shadow-[0_0_50px_rgba(255,100,0,0.2)]">
-                <button onClick={() => setShowReactorHelp(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X className="w-5 h-5"/></button>
-                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <Atom className="w-6 h-6 text-orange-500" /> O REATOR (Nível Supremo)
-                </h3>
-                <div className="space-y-4 text-slate-300">
-                    <p>O Modo Reator é a <strong>SUPREMACIA ENERGÉTICA</strong> deste sistema. Uma tecnologia reservada para quem exige resultados absolutos.</p>
-                    <div className="bg-slate-900 p-4 rounded-lg border border-slate-800">
-                        <h4 className="text-orange-400 font-bold mb-1">Potência Máxima</h4>
-                        <p>Através da <strong>FUSÃO GAMMA (40Hz)</strong>, este modo sincroniza instantaneamente os hemisférios cerebrais, criando um estado de hiper-foco e materialização acelerada.</p>
-                    </div>
-                    <div className="bg-slate-900 p-4 rounded-lg border border-slate-800">
-                        <h4 className="text-orange-400 font-bold mb-1">Uso Estratégico</h4>
-                        <p>Ative este modo para romper bloqueios estagnados, acelerar manifestações ou atingir picos de performance cognitiva impossíveis em estado normal.</p>
-                    </div>
-                    <p className="text-xs text-center text-slate-500 mt-4">AVISO: Contém luzes estroboscópicas. Não use se tiver fotossensibilidade.</p>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {showScalarHelp && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-              <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 relative shadow-2xl">
-                  <button onClick={() => setShowScalarHelp(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X className="w-5 h-5"/></button>
-                  <div className="flex flex-col items-center text-center mb-6">
-                      <Infinity className="w-12 h-12 text-slate-200 mb-4" />
-                      <h2 className="text-xl font-bold text-white mb-2">Modo Escalar (Zero Point)</h2>
-                      <div className="w-16 h-1 bg-slate-500 rounded-full"></div>
-                  </div>
-                  <div className="space-y-4 text-slate-300 text-sm leading-relaxed">
-                      <p>O Modo Escalar gera duas ondas idênticas em fase oposta (180º). Quando se encontram, elas se cancelam, criando um <strong>Vácuo Quântico</strong> onde reside a Informação Pura.</p>
-                      <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                          <h3 className="text-white font-bold mb-2 flex items-center gap-2"><HeadphonesIcon className="w-4 h-4"/> Método 1: Fones (Recomendado)</h3>
-                          <p className="text-xs">O som deve diminuir ou sumir "dentro" da sua cabeça. O cancelamento ocorre no cérebro, permitindo que a informação entre direto no subconsciente (Ponto Zero).</p>
-                      </div>
-                      <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                          <h3 className="text-white font-bold mb-2 flex items-center gap-2"><Radio className="w-4 h-4"/> Método 2: Broadcast (Não-Local)</h3>
-                          <p className="text-xs">Toque no celular (mesmo volume baixo). A onda escalar atua como um transmissor quântico. Sua intenção conecta você à frequência onde quer que esteja.</p>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {showSigns && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-              <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 relative">
-                  <button onClick={() => setShowSigns(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X className="w-5 h-5"/></button>
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-cyan-400" /> Sinais de Ressonância
-                  </h3>
-                  <ul className="space-y-3 text-sm text-slate-300">
-                      <li className="flex items-start gap-3">
-                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400 flex-shrink-0"></div>
-                          <span><strong>Gosto Metálico na Boca:</strong> Sensação distinta no paladar ou língua, indicando forte ionização e resposta do sistema nervoso.</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400 flex-shrink-0"></div>
-                          <span><strong>Formigamento no Topo da Cabeça:</strong> Ativação do Chakra Coronário e fluxo energético.</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400 flex-shrink-0"></div>
-                          <span><strong>Calor Súbito:</strong> Aumento da circulação energética e ativação celular localizada.</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400 flex-shrink-0"></div>
-                          <span><strong>Relaxamento Profundo:</strong> Sensação de "peso" agradável, indicando entrada em Alpha/Theta.</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                          <div className="w-1.5 h-1.5 mt-2 rounded-full bg-cyan-400 flex-shrink-0"></div>
-                          <span><strong>Claridade Mental:</strong> Silêncio interno imediato e redução do ruído mental.</span>
-                      </li>
-                  </ul>
-              </div>
-          </div>
-      )}
-
-      {showTrustModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-              <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 relative">
-                  <button onClick={() => setShowTrustModal(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X className="w-5 h-5"/></button>
-                  <div className="flex flex-col items-center mb-6">
-                      <Globe className="w-12 h-12 mb-3 text-cyan-400" />
-                      <h3 className="text-lg font-bold text-white">Status da Rede Quântica</h3>
-                  </div>
-                  
-                  <div className="space-y-4">
-                      <div className={`p-4 rounded-xl border transition-all ${!isOffline ? 'bg-cyan-900/20 border-cyan-500/30' : 'bg-slate-800/30 border-slate-800 opacity-60'}`}>
-                          <div className="flex items-center gap-3 mb-2">
-                              <div className={`w-2 h-2 rounded-full ${!isOffline ? 'bg-cyan-400 shadow-[0_0_10px_cyan]' : 'bg-slate-600'}`}></div>
-                              <h4 className={`font-bold text-sm ${!isOffline ? 'text-white' : 'text-slate-400'}`}>Modo Online (Nuvem)</h4>
-                          </div>
-                          <p className="text-xs text-slate-300 leading-relaxed">
-                              Conectado à inteligência generativa. Acessa bancos de dados metafísicos globais para correlacionar sua intenção com frequências Rife exatas.
-                          </p>
-                      </div>
-
-                      <div className={`p-4 rounded-xl border transition-all ${isOffline ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-slate-800/30 border-slate-800 opacity-60'}`}>
-                          <div className="flex items-center gap-3 mb-2">
-                              <div className={`w-2 h-2 rounded-full ${isOffline ? 'bg-emerald-400 shadow-[0_0_10px_emerald]' : 'bg-slate-600'}`}></div>
-                              <h4 className={`font-bold text-sm ${isOffline ? 'text-white' : 'text-slate-400'}`}>Modo Offline (Geometria)</h4>
-                          </div>
-                          <p className="text-xs text-slate-300 leading-relaxed">
-                              Algoritmo local ativo. Usa a Sequência de Fibonacci para converter texto em vibração matemática pura quando não há internet.
-                          </p>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
-
     </div>
   );
 
@@ -1486,6 +1376,7 @@ const App: React.FC = () => {
       if (freq.id === GUARDIAN_FREQUENCY.id) return null;
 
       const isActive = activeFrequencies.includes(freq.id);
+      const isConflicting = conflictingIds.includes(freq.id);
       const theme = getCategoryTheme(freq.category);
       const isFav = favorites.includes(freq.id);
       const downloading = isDownloading === freq.id;
@@ -1496,7 +1387,7 @@ const App: React.FC = () => {
             key={freq.id}
             id={freq.id}
             onClick={() => isSelectionMode && toggleSelection(freq.id)}
-            className={`relative overflow-hidden rounded-2xl border transition-all duration-500 group ${
+            className={`relative overflow-hidden rounded-lg border transition-all duration-500 group ${
                 isSelectionMode 
                    ? isSelectedForDelete 
                        ? 'bg-cyan-900/30 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)] scale-[0.98]' 
@@ -1509,20 +1400,29 @@ const App: React.FC = () => {
             {isActive && !isSelectionMode && (
                 <div className={`absolute inset-0 bg-gradient-to-r ${theme.gradient} opacity-5`}></div>
             )}
+
+            {/* CONFLICT WARNING OVERLAY */}
+            {isConflicting && !isSelectionMode && isActive && (
+                 <div className="absolute top-0 right-0 z-30 p-2">
+                     <div className="bg-amber-500 text-black text-[9px] font-bold px-2 py-1 rounded-full animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.5)] border border-amber-300 flex items-center gap-1">
+                         <AlertTriangle className="w-3 h-3" /> CONFLITO ENERGÉTICO
+                     </div>
+                 </div>
+            )}
             
             {isSelectionMode && (
-                <div className="absolute top-4 right-4 z-20 animate-fade-in-up">
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelectedForDelete ? 'bg-cyan-500 border-cyan-500 shadow-lg' : 'border-slate-500 bg-slate-900/50'}`}>
-                        {isSelectedForDelete && <Check className="w-4 h-4 text-white" />}
+                <div className="absolute top-3 right-3 z-20 animate-fade-in-up">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelectedForDelete ? 'bg-cyan-500 border-cyan-500 shadow-lg' : 'border-slate-500 bg-slate-900/50'}`}>
+                        {isSelectedForDelete && <Check className="w-3 h-3 text-white" />}
                     </div>
                 </div>
             )}
 
-            <div className={`p-5 flex items-center justify-between relative z-10 ${isSelectionMode ? 'pointer-events-none' : ''}`}>
+            <div className={`p-4 flex items-center justify-between relative z-10 ${isSelectionMode ? 'pointer-events-none' : ''}`}>
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleFrequency(freq); }}
-                      className={`w-12 h-12 flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-700 shadow-lg border border-white/10 ${
+                      className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-700 shadow-lg border border-white/10 ${
                           isActive 
                           ? `bg-gradient-to-br ${theme.gradient} text-white scale-110 shadow-[0_0_15px_rgba(255,255,255,0.3)]` 
                           : 'bg-slate-800 text-slate-500 group-hover:bg-slate-700'
@@ -1531,43 +1431,43 @@ const App: React.FC = () => {
                     >
                         {isActive ? (
                             <div className="bg-black/20 w-8 h-8 rounded-full flex items-center justify-center shadow-inner">
-                                <Square className="w-4 h-4 fill-white text-white" />
+                                <Square className="w-3.5 h-3.5 fill-white text-white" />
                             </div>
                         ) : (
-                            <Play className="w-5 h-5 fill-current pl-1" />
+                            <Play className="w-4 h-4 fill-current pl-0.5" />
                         )}
                     </button>
 
                     <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start w-full">
-                            <h3 className={`font-rajdhani font-bold text-lg leading-tight line-clamp-2 mr-2 ${isActive ? 'text-white' : 'text-slate-200'}`}>
+                        <div className="flex justify-between items-start w-full gap-2">
+                            <h3 className={`font-rajdhani font-bold text-base leading-tight line-clamp-2 ${isActive ? 'text-white' : 'text-slate-200'}`}>
                                 {freq.name}
                             </h3>
-                            <span className={`flex items-center justify-center text-[10px] px-2 py-0.5 rounded-full border bg-opacity-20 whitespace-nowrap flex-shrink-0 mt-1 ${isActive ? 'border-white/30 text-white' : 'border-slate-700 text-slate-500'}`}>
+                            <span className={`flex items-center justify-center text-[9px] px-1.5 py-0.5 rounded-full border bg-opacity-20 whitespace-nowrap flex-shrink-0 mt-0.5 ${isActive ? 'border-white/30 text-white' : 'border-slate-700 text-slate-500'}`}>
                                 {freq.hz} Hz
                             </span>
                         </div>
-                        <p className={`text-xs leading-relaxed line-clamp-2 mt-1 ${isActive ? 'text-slate-200' : 'text-slate-400'}`}>
+                        <p className={`text-[10px] leading-relaxed line-clamp-2 mt-1 ${isActive ? 'text-slate-200' : 'text-slate-400'}`}>
                             {freq.description}
                         </p>
                     </div>
                 </div>
 
-                <div className={`flex flex-col gap-2 ml-4 flex-shrink-0 transition-opacity duration-300 ${isSelectionMode ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                <div className={`flex flex-col gap-1 ml-3 flex-shrink-0 transition-opacity duration-300 ${isSelectionMode ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                     <button 
                     onClick={(e) => toggleFavorite(e, freq.id)}
-                    className={`p-2 rounded-full transition-colors ${isFav ? 'text-rose-400 bg-rose-400/10' : 'text-slate-600 hover:text-slate-400'}`}
+                    className={`p-1.5 rounded-full transition-colors ${isFav ? 'text-rose-400 bg-rose-400/10' : 'text-slate-600 hover:text-slate-400'}`}
                     disabled={isSelectionMode}
                     >
-                        <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
+                        <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-current' : ''}`} />
                     </button>
                     <button 
                     onClick={(e) => handleDownload(e, freq)}
-                    className={`p-2 rounded-full transition-colors ${downloading ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 hover:text-cyan-400'}`}
+                    className={`p-1.5 rounded-full transition-colors ${downloading ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 hover:text-cyan-400'}`}
                     title="Baixar Áudio"
                     disabled={isSelectionMode}
                     >
-                        {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                     </button>
                     
                     <button 
@@ -1576,10 +1476,10 @@ const App: React.FC = () => {
                             setSingleDeleteId(freq.id); 
                             setShowDeleteConfirm(true); 
                         }}
-                        className="p-2 rounded-full text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition-colors"
+                        className="p-1.5 rounded-full text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition-colors"
                         title={selectedCategory === 'RECENTES' ? "Remover do Histórico" : "Apagar Frequência"}
                     >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                     </button>
                 </div>
             </div>
