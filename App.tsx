@@ -759,7 +759,7 @@ const App: React.FC = () => {
             onTouchStart={handleDoubleTap}
             onMouseDown={handleDoubleTap}
           >
-              {/* REACTOR OVERLAY CONTENT ... (No changes here) */}
+              {/* REACTOR OVERLAY CONTENT */}
               <div 
                  className={`absolute inset-0 bg-white ${selectedReactorMode.id === 'sleep_core' ? 'animate-pulse' : 'animate-pulse'}`} 
                  style={{ 
@@ -1199,7 +1199,7 @@ const App: React.FC = () => {
 
       {/* --- FLOATING UNIFIED ACTION BAR (BOTTOM DOCK) - FIXED POSITIONING FIX --- */}
       {isSelectionMode && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] animate-fade-in-up w-auto max-w-[95vw]">
+          <div className="fixed bottom-24 inset-x-0 mx-auto w-fit z-[60] animate-fade-in-up">
               <div className="flex items-center bg-slate-900/90 backdrop-blur-xl border border-slate-700 rounded-full shadow-2xl p-1 gap-1">
                   
                   <div className="flex items-center gap-2 px-4 py-2 border-r border-slate-700/50">
@@ -1422,7 +1422,7 @@ const App: React.FC = () => {
 
             {/* CONFLICT WARNING OVERLAY (IMPROVED POSITIONING) */}
             {isConflicting && !isSelectionMode && isActive && (
-                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-40 w-full flex justify-center pointer-events-none">
+                 <div className="absolute top-0 left-1/2 -translate-x-1/2 z-40 w-full flex justify-center pointer-events-none">
                      <div className="bg-amber-500 text-black text-[9px] font-bold px-3 py-1 rounded-b-lg shadow-[0_4px_10px_rgba(245,158,11,0.5)] border-x border-b border-amber-300 flex items-center gap-1.5 transform-gpu animate-pulse">
                          <AlertTriangle className="w-3 h-3" />
                          <span>CONFLITO</span>
