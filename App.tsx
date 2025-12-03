@@ -95,6 +95,7 @@ const App: React.FC = () => {
   const [networkMsg, setNetworkMsg] = useState<{show: boolean, msg: string, type: 'success' | 'warning'}>({show: false, msg: '', type: 'success'});
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
   const [conflictingIds, setConflictingIds] = useState<string[]>([]); // State for card-specific warnings
+  const [dismissedWarnings, setDismissedWarnings] = useState<string[]>([]); // Track dismissed conflicts
 
   // Guardian Toggle State
   const [guardianEnabledByUser, setGuardianEnabledByUser] = useState(true);
@@ -421,6 +422,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (activeFrequencies.length < 2) {
         setConflictingIds([]);
+        setDismissedWarnings([]); // Reset dismissed when peace is restored
         return;
     }
 
@@ -437,6 +439,7 @@ const App: React.FC = () => {
         setConflictingIds(ids);
     } else {
         setConflictingIds([]);
+        setDismissedWarnings([]); // Reset if conflict resolved
     }
   }, [activeFrequencies, allFrequencies]);
 
@@ -651,7 +654,7 @@ const App: React.FC = () => {
   // --- RENDER: LANDING PAGE & TRANSITION ---
   if (!hasStarted) {
     return (
-      <div className="fixed inset-0 overflow-hidden bg-[#020617] text-center flex flex-col items-center justify-center">
+      <div className="fixed inset-0 overflow-hidden bg-[#020617] flex flex-col items-center justify-center">
         {/* BACKGROUND */}
         <div className="absolute inset-0 bg-[#020617]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.05),transparent_70%)] animate-pulse" style={{ animationDuration: '6s' }}></div>
@@ -703,10 +706,10 @@ const App: React.FC = () => {
                     </div>
                     
                     <div className="space-y-3">
-                        <p className="text-lg text-slate-200 font-rajdhani font-extrabold drop-shadow-md">
+                        <p className="text-lg text-white font-rajdhani font-extrabold drop-shadow-md">
                             Acesse o <span className="text-cyan-300 glow-text-cyan">Campo de Potencial Infinito</span>.
                         </p>
-                        <p className="text-sm text-slate-200 font-medium tracking-wide leading-relaxed opacity-100 drop-shadow-sm">
+                        <p className="text-sm text-slate-200 font-medium tracking-wide leading-relaxed opacity-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                             Ao ativar a ressonância, uma cúpula de harmonização envolverá seu campo, garantindo paz e segurança total.
                         </p>
                     </div>
@@ -1112,6 +1115,14 @@ const App: React.FC = () => {
                            >
                               <CheckSquare className="w-3 h-3" /> Selecionar Tudo
                            </button>
+                           {selectedCategory === 'RECENTES' && (
+                               <button 
+                                   onClick={clearRecents} 
+                                   className="flex items-center gap-2 px-3 py-1.5 bg-red-900/30 text-red-300 hover:bg-red-900/50 rounded-full text-xs font-bold border border-red-900/50 transition-all"
+                               >
+                                   <Eraser className="w-3 h-3" /> Limpar Histórico
+                               </button>
+                           )}
                        </div>
                    )}
               </div>
@@ -1396,6 +1407,7 @@ const App: React.FC = () => {
 
       const isActive = activeFrequencies.includes(freq.id);
       const isConflicting = conflictingIds.includes(freq.id);
+      const isDismissed = dismissedWarnings.includes(freq.id); // Check dismissed
       const theme = getCategoryTheme(freq.category);
       const isFav = favorites.includes(freq.id);
       const downloading = isDownloading === freq.id;
@@ -1421,11 +1433,20 @@ const App: React.FC = () => {
             )}
 
             {/* CONFLICT WARNING OVERLAY (IMPROVED POSITIONING) */}
-            {isConflicting && !isSelectionMode && isActive && (
-                 <div className="absolute top-0 left-1/2 -translate-x-1/2 z-40 w-full flex justify-center pointer-events-none">
-                     <div className="bg-amber-500 text-black text-[9px] font-bold px-3 py-1 rounded-b-lg shadow-[0_4px_10px_rgba(245,158,11,0.5)] border-x border-b border-amber-300 flex items-center gap-1.5 transform-gpu animate-pulse">
+            {isConflicting && !isSelectionMode && isActive && !isDismissed && (
+                 <div className="absolute top-0 left-1/2 -translate-x-1/2 z-40 w-full flex justify-center pointer-events-auto">
+                     <div className="bg-amber-500 text-black text-[9px] font-bold pl-3 pr-1 py-0.5 rounded-b-lg shadow-[0_4px_10px_rgba(245,158,11,0.5)] border-x border-b border-amber-300 flex items-center gap-1.5 transform-gpu animate-pulse">
                          <AlertTriangle className="w-3 h-3" />
                          <span>CONFLITO</span>
+                         <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setDismissedWarnings(prev => [...prev, freq.id]);
+                            }}
+                            className="p-0.5 hover:bg-black/10 rounded-full ml-1 transition-colors"
+                         >
+                            <X className="w-3 h-3" />
+                         </button>
                      </div>
                  </div>
             )}
