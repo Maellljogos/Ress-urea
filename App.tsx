@@ -651,7 +651,7 @@ const App: React.FC = () => {
   // --- RENDER: LANDING PAGE & TRANSITION ---
   if (!hasStarted) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center relative overflow-hidden bg-[#020617] text-center pb-12">
+      <div className="h-screen w-full flex flex-col items-center justify-center relative overflow-hidden bg-[#020617] text-center pb-20">
         {/* BACKGROUND */}
         <div className="absolute inset-0 bg-[#020617]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.05),transparent_70%)] animate-pulse" style={{ animationDuration: '6s' }}></div>
@@ -686,7 +686,7 @@ const App: React.FC = () => {
                    <Visualizer isActive={false} forceAnimate={true} speedMultiplier={0.3} breathDuration="10s" />
                 </div>
 
-                <div className="flex flex-col items-center gap-1 mb-4 -mt-4 transform-gpu">
+                <div className="flex flex-col items-center gap-1 mb-3 -mt-4 transform-gpu">
                     <h1 className="text-4xl md:text-5xl font-orbitron font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-cyan-100 to-slate-100 glow-text-cyan drop-shadow-[0_0_10px_rgba(34,211,238,0.3)]">
                     RESSAUREA
                     </h1>
@@ -908,7 +908,7 @@ const App: React.FC = () => {
            <div className="w-full px-8 space-y-4">
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center justify-between bg-gradient-to-r from-cyan-950/40 to-cyan-900/20 p-3 rounded-lg border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
+                  <div className="flex items-center justify-between bg-gradient-to-r from-cyan-950/40 to-cyan-900/20 p-3 rounded-lg border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.1)] transform-gpu subpixel-antialiased">
                       <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all duration-500 ${isScalarMode ? 'bg-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.8)]' : 'bg-slate-900 text-cyan-500 border border-cyan-900'}`}>
                               <Infinity className="w-5 h-5" />
@@ -925,7 +925,7 @@ const App: React.FC = () => {
                       </button>
                   </div>
 
-                  <div className="flex items-center justify-between bg-gradient-to-r from-red-900/20 to-orange-900/20 p-3 rounded-lg border border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.1)]">
+                  <div className="flex items-center justify-between bg-gradient-to-r from-red-900/20 to-orange-900/20 p-3 rounded-lg border border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.1)] transform-gpu subpixel-antialiased">
                       <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center border border-orange-500/50 shadow-lg ${isReactorActive ? 'bg-orange-500 text-white shadow-[0_0_15px_orange]' : 'bg-slate-900 text-orange-500'}`}>
                               <Atom className={`w-5 h-5 ${isReactorActive ? 'animate-spin' : ''}`} />
@@ -985,7 +985,7 @@ const App: React.FC = () => {
                   <div className="pl-0"></div>
                   <button
                       onClick={() => handleCategoryChange('All')}
-                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                           selectedCategory === 'All' 
                           ? 'bg-slate-100 text-slate-900 border-slate-100 shadow-[0_0_15px_rgba(255,255,255,0.2)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
@@ -994,10 +994,10 @@ const App: React.FC = () => {
                       TODOS
                   </button>
 
-                  {/* ATIVOS (PLAYING) CATEGORY */}
+                  {/* ATIVOS (PLAYING) CATEGORY - SMOOTH REVEAL */}
                   <button
                       onClick={() => handleCategoryChange('ATIVOS')}
-                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center gap-2 hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                           isAtivosSelected
                             ? 'bg-amber-950/40 text-amber-100 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] scale-105'
                             : isAtivosHighlighted
@@ -1005,14 +1005,19 @@ const App: React.FC = () => {
                                 : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
                       }`}
                   >
-                      <Disc className={`w-3.5 h-3.5 ${activeCount > 0 ? 'animate-spin-slow text-amber-400' : ''}`} /> 
-                      ATIVOS ({activeCount})
+                       <div className="flex items-center gap-2">
+                          <Disc className={`w-3.5 h-3.5 ${activeCount > 0 ? 'animate-spin-slow text-amber-400' : ''}`} /> 
+                          <span>ATIVOS</span>
+                          <div className={`overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] flex items-center ${activeCount > 0 ? 'max-w-[3rem] opacity-100' : 'max-w-0 opacity-0'}`}>
+                             <span className="pl-0.5">({activeCount})</span>
+                          </div>
+                       </div>
                   </button>
 
                   {/* RECENTES (HISTORY) CATEGORY */}
                   <button
                       onClick={() => handleCategoryChange('RECENTES')}
-                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center gap-2 hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center gap-2 hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                           selectedCategory === 'RECENTES' 
                           ? 'bg-purple-900/30 text-purple-200 border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.3)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
@@ -1023,7 +1028,7 @@ const App: React.FC = () => {
 
                   <button
                       onClick={() => handleCategoryChange('FAVORITOS')}
-                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center gap-2 hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center gap-2 hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                           selectedCategory === 'FAVORITOS' 
                           ? 'bg-rose-900/30 text-rose-200 border-rose-500/50 shadow-[0_0_10px_rgba(244,63,94,0.3)] scale-105' 
                           : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
@@ -1043,7 +1048,7 @@ const App: React.FC = () => {
                           <button
                               key={cat}
                               onClick={() => handleCategoryChange(cat)}
-                              className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all border flex items-center justify-center hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
+                              className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
                                   isSelected 
                                   ? `bg-gradient-to-r ${theme.gradient} ${textColor} border-transparent shadow-lg scale-105` 
                                   : `bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500`
@@ -1246,7 +1251,8 @@ const App: React.FC = () => {
               </div>
           </div>
       )}
-
+      
+      {/* ... Rest of the component (Menu, Modals, etc.) remains same ... */}
       {showMenu && (
         <div className="fixed inset-0 z-[100] flex justify-start bg-black/60 backdrop-blur-sm">
              <div className="bg-slate-900 border-r border-slate-700 w-80 h-full p-6 relative shadow-2xl animate-fade-in-up">
@@ -1404,9 +1410,9 @@ const App: React.FC = () => {
             {/* CONFLICT WARNING OVERLAY (IMPROVED POSITIONING) */}
             {isConflicting && !isSelectionMode && isActive && (
                  <div className="absolute top-2 right-2 z-40">
-                     <div className="bg-amber-500/90 backdrop-blur-md text-black text-[9px] font-bold px-3 py-1.5 rounded-full animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.6)] border border-amber-300 flex items-center gap-1.5 transform-gpu">
+                     <div className="bg-amber-500/90 backdrop-blur-md text-black text-[9px] font-bold px-3 py-1.5 rounded-full animate-ping-slow shadow-[0_0_15px_rgba(245,158,11,0.6)] border border-amber-300 flex items-center gap-1.5 transform-gpu">
                          <AlertTriangle className="w-3 h-3" />
-                         <span>CONFLITO</span>
+                         <span>CONFLITO ENERGÉTICO</span>
                      </div>
                  </div>
             )}
