@@ -651,7 +651,7 @@ const App: React.FC = () => {
   // --- RENDER: LANDING PAGE & TRANSITION ---
   if (!hasStarted) {
     return (
-      <div className="fixed inset-0 overflow-hidden flex items-center justify-center bg-[#020617] text-center z-[9999]">
+      <div className="h-screen w-screen flex items-center justify-center relative overflow-hidden bg-[#020617] text-center">
         {/* BACKGROUND */}
         <div className="absolute inset-0 bg-[#020617]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.05),transparent_70%)] animate-pulse" style={{ animationDuration: '6s' }}></div>
@@ -679,14 +679,14 @@ const App: React.FC = () => {
                  </div>
              </div>
         ) : (
-             <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-md animate-fade-in-up">
+             <div className="relative z-10 flex flex-col items-center w-full max-w-md animate-fade-in-up justify-center">
                 
-                {/* Visualizer */}
-                <div className="scale-75 h-[280px] flex items-center justify-center -mt-8">
+                {/* Visualizer - Lifted Up */}
+                <div className="scale-75 h-[280px] flex items-center justify-center -mt-10">
                    <Visualizer isActive={false} forceAnimate={true} speedMultiplier={0.3} breathDuration="10s" />
                 </div>
 
-                <div className="flex flex-col items-center gap-1 mb-6 -mt-4 transform-gpu">
+                <div className="flex flex-col items-center gap-1 mb-3 -mt-4 transform-gpu">
                     <h1 className="text-4xl md:text-5xl font-orbitron font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-cyan-100 to-slate-100 glow-text-cyan drop-shadow-[0_0_10px_rgba(34,211,238,0.3)]">
                     RESSAUREA
                     </h1>
@@ -696,767 +696,817 @@ const App: React.FC = () => {
                     </p>
                 </div>
 
-                <div className="bg-slate-900/90 border border-cyan-500/30 px-6 py-6 rounded-xl max-w-sm w-full backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.08)] mb-6 text-center transform-gpu">
-                    <div className="flex items-center justify-center gap-2 mb-3 text-cyan-400">
-                        <ShieldCheck size={20} />
-                        <span className="text-xs font-bold tracking-widest uppercase">Blindagem Vibracional</span>
+                <div className="bg-slate-900/90 border border-cyan-500/30 px-6 py-5 rounded-xl max-w-xs w-full backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.08)] mb-5 text-center transform-gpu">
+                    <div className="flex items-center justify-center gap-2 text-cyan-400 font-bold tracking-wider text-[10px] uppercase mb-3">
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>BLINDAGEM VIBRACIONAL</span>
                     </div>
-                    <p className="text-white font-medium text-sm leading-relaxed drop-shadow-md">
-                        Acesse o <span className="text-cyan-300 font-bold">Campo de Potencial Infinito</span>.
-                    </p>
-                    <p className="text-slate-300 font-medium text-xs mt-2 leading-relaxed">
-                        Ao ativar a ressonância, uma cúpula de harmonização envolverá seu campo, garantindo paz e segurança total.
-                    </p>
+                    
+                    <div className="space-y-3">
+                        <p className="text-base text-slate-200 font-rajdhani font-bold drop-shadow-md">
+                            Acesse o <span className="text-cyan-300 glow-text-cyan">Campo de Potencial Infinito</span>.
+                        </p>
+                        <p className="text-xs text-slate-200 font-medium tracking-wide leading-relaxed opacity-100 drop-shadow-sm">
+                            Ao ativar a ressonância, uma cúpula de harmonização envolverá seu campo, garantindo paz e segurança total.
+                        </p>
+                    </div>
                 </div>
 
-                <button 
-                    onClick={handleEnterApp}
-                    className="group relative px-12 py-3 bg-transparent overflow-hidden rounded-full border border-cyan-500/50 hover:border-cyan-400 transition-all duration-300 shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:shadow-[0_0_30px_rgba(6,182,212,0.3)]"
+                <button
+                  onClick={handleEnterApp}
+                  className="group relative px-12 py-3 bg-transparent overflow-hidden rounded-full transition-all duration-500 hover:scale-105 transform-gpu"
                 >
-                    <div className="absolute inset-0 bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-all duration-500"></div>
-                    <span className="relative font-orbitron tracking-[0.2em] text-cyan-100 group-hover:text-white transition-colors text-lg">
-                        ENTRAR
-                    </span>
+                  <div className="absolute inset-0 border border-cyan-500/30 rounded-full"></div>
+                  <div className="absolute inset-0 bg-cyan-500/10 blur-xl group-hover:bg-cyan-500/20 transition-all duration-500"></div>
+                  <div className="relative flex items-center gap-3 text-cyan-100 font-orbitron tracking-widest text-base">
+                    <span>ENTRAR</span>
+                  </div>
                 </button>
-             </div>
+            </div>
         )}
       </div>
     );
   }
 
-  // --- RENDER: MAIN APP ---
+  // Count active freqs (Normal + Guardian if enabled)
+  let activeCount = activeFrequencies.filter(id => id !== REACTOR_FREQUENCY.id && id !== GUARDIAN_FREQUENCY.id && id !== UPLIFT_FREQUENCY.id).length;
+  // User asked for Guardian to be counted in the badge visually
+  if (guardianActive) activeCount += 1;
+
+  const isAtivosHighlighted = activeCount > 0;
+  const isAtivosSelected = selectedCategory === 'ATIVOS';
+
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200 font-sans pb-32 animate-fade-in-slow">
-      <video ref={videoRef} loop muted playsInline className="hidden">
-          <source src={WAKE_LOCK_VIDEO} type="video/mp4" />
-      </video>
+    <div className="min-h-screen bg-[#020617] text-slate-200 selection:bg-cyan-500/30 relative overflow-hidden font-rajdhani antialiased animate-fade-in-slow">
+      
+      <video 
+         ref={videoRef}
+         loop 
+         muted 
+         playsInline 
+         className="fixed w-1 h-1 -z-10 opacity-0 pointer-events-none top-0 left-0"
+         src={WAKE_LOCK_VIDEO}
+      />
 
-      {/* --- HEADER --- */}
-      <header className="sticky top-0 z-30 bg-[#020617]/95 backdrop-blur-xl border-b border-slate-800/60 shadow-lg">
-        <div className="px-4 h-16 flex items-center justify-between max-w-[1920px] mx-auto w-full">
-          <div className="flex items-center gap-3">
-             <button onClick={() => setShowMenu(true)} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
-                <Menu className="text-slate-400" size={24} />
-             </button>
-             <h1 
-                onClick={handleBackToStart}
-                className="text-xl md:text-2xl font-orbitron font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 to-blue-400 cursor-pointer"
-             >
-              RESSAUREA
-             </h1>
-          </div>
+      <div className="fixed inset-0 z-0 pointer-events-none flex items-center justify-center opacity-60">
+         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,215,0,0.02),transparent_60%)]"></div>
+         <Visualizer isActive={isPlaying && activeFrequencies.length > 0} speedMultiplier={speedMult} breathDuration={stats.breath} />
+      </div>
 
-          <div className="flex items-center gap-4">
-             {/* Guardian Toggle Switch (Visual) */}
-             <div 
-               onClick={() => setGuardianEnabledByUser(!guardianEnabledByUser)}
-               className={`hidden md:flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-full transition-all border ${guardianEnabledByUser ? 'bg-cyan-950/30 border-cyan-500/30' : 'bg-slate-900 border-slate-700'}`}
-             >
-                <span className={`text-[10px] font-bold tracking-wider ${guardianEnabledByUser ? 'text-cyan-400' : 'text-slate-500'}`}>
-                    PROTEÇÃO BASE {guardianEnabledByUser ? 'ATIVA' : 'OFF'}
-                </span>
-                <div className={`w-8 h-4 rounded-full relative transition-colors ${guardianEnabledByUser ? 'bg-cyan-500' : 'bg-slate-600'}`}>
-                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${guardianEnabledByUser ? 'left-4.5 translate-x-[14px]' : 'left-0.5'}`}></div>
-                </div>
-             </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="px-6 md:px-8 py-6 max-w-[1920px] mx-auto w-full">
-        {/* --- GLOBAL CONTROLS (SCALAR & REACTOR) --- */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            {/* SCALAR MODE BUTTON */}
-            <div 
-                className={`relative overflow-hidden p-0.5 rounded-xl transition-all duration-500 ${isScalarMode ? 'bg-gradient-to-r from-cyan-500 to-blue-600 shadow-[0_0_25px_rgba(6,182,212,0.3)]' : 'bg-slate-800'}`}
-            >
-                <div className="relative h-full bg-[#020617] rounded-[10px] p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg transition-colors ${isScalarMode ? 'bg-cyan-500/20 text-cyan-400' : 'bg-slate-800 text-slate-500'}`}>
-                            <Infinity size={20} />
-                        </div>
-                        <div>
-                            <h3 className={`font-orbitron text-sm font-bold ${isScalarMode ? 'text-cyan-100' : 'text-slate-400'}`}>Modo Escalar</h3>
-                        </div>
-                        <HelpCircle 
-                           size={14} 
-                           className="text-slate-600 hover:text-cyan-400 cursor-pointer transition-colors"
-                           onClick={(e) => { e.stopPropagation(); setShowScalarHelp(true); }}
-                        />
-                    </div>
-                    
-                    {/* TOGGLE SWITCH */}
-                    <div 
-                        onClick={toggleScalarMode}
-                        className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${isScalarMode ? 'bg-cyan-500' : 'bg-slate-700'}`}
-                    >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${isScalarMode ? 'left-7' : 'left-1'}`}></div>
-                    </div>
-                </div>
-            </div>
-
-            {/* REACTOR MODE BUTTON */}
-            <div 
-                className={`relative overflow-hidden p-0.5 rounded-xl transition-all duration-500 ${isReactorActive ? 'bg-gradient-to-r from-orange-500 to-red-600 shadow-[0_0_25px_rgba(249,115,22,0.3)]' : 'bg-slate-800'}`}
-            >
-                <div 
-                    className="relative h-full bg-[#020617] rounded-[10px] p-4 flex items-center justify-between cursor-pointer"
-                    onClick={(e) => handleDoubleTap(e)}
-                >
-                     <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg transition-colors ${isReactorActive ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-800 text-slate-500'}`}>
-                            <Atom size={20} className={isReactorActive ? 'animate-spin' : ''} style={{ animationDuration: '3s' }} />
-                        </div>
-                        <div>
-                             <h3 className={`font-orbitron text-sm font-bold ${isReactorActive ? 'text-orange-100' : 'text-slate-400'}`}>O Reator</h3>
-                        </div>
-                        <HelpCircle 
-                           size={14} 
-                           className="text-slate-600 hover:text-orange-400 cursor-pointer transition-colors"
-                           onClick={(e) => { e.stopPropagation(); setShowReactorHelp(true); }}
-                        />
-                    </div>
-
-                    {/* TOGGLE SWITCH */}
-                    <div 
-                         onClick={(e) => { e.stopPropagation(); toggleFrequency(REACTOR_FREQUENCY); }}
-                        className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${isReactorActive ? 'bg-orange-500' : 'bg-slate-700'}`}
-                    >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${isReactorActive ? 'left-7' : 'left-1'}`}></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {/* --- SEARCH & AI GENERATION --- */}
-        <div className="relative mb-8 group">
-           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Search className="text-slate-500 group-focus-within:text-cyan-400 transition-colors" size={18} />
-           </div>
-           <input 
-              ref={searchInputRef}
-              type="text" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Qual sua intenção? (Ex: Prosperidade, Amor...)"
-              className="w-full bg-slate-900/50 border border-slate-700 rounded-full py-3.5 pl-11 pr-32 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all shadow-inner"
-              onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
-           />
-           <div className="absolute inset-y-0 right-1.5 flex items-center gap-1">
-               <div className="flex bg-slate-800 rounded-full p-0.5 mr-1">
-                  <button 
-                     onClick={() => setSearchMode('INTENT')}
-                     className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${searchMode === 'INTENT' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
-                  >
-                    INTENÇÃO
-                  </button>
-                  <button 
-                     onClick={() => setSearchMode('MATRIX')}
-                     className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${searchMode === 'MATRIX' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
-                  >
-                    MATRIX
-                  </button>
-               </div>
-               <button 
-                  onClick={handleGenerate}
-                  disabled={isGenerating || !searchTerm.trim()}
-                  className="bg-cyan-600 hover:bg-cyan-500 text-white p-2 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-               >
-                  {isGenerating ? <Loader2 className="animate-spin" size={18}/> : <CloudDownload size={18} />}
-               </button>
-           </div>
-        </div>
-
-        {/* --- CATEGORY TABS --- */}
-        <div className="relative mb-6">
-           <div 
-             ref={listTopRef}
-             className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide snap-x w-full"
-           >
-              {/* ALL BUTTON */}
-              <button
-                onClick={() => handleCategoryChange('All')}
-                className={`snap-start flex-shrink-0 px-6 py-2 rounded-full border text-xs font-bold uppercase tracking-wider transition-all duration-300 transform-gpu ${selectedCategory === 'All' ? 'bg-white text-slate-900 border-transparent shadow-[0_0_15px_rgba(255,255,255,0.4)] scale-105' : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'}`}
-              >
-                TODOS
-              </button>
+      {isReactorActive && (
+          <div 
+            className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center overflow-hidden transform-gpu group select-none touch-action-none"
+            onTouchStart={handleDoubleTap}
+            onMouseDown={handleDoubleTap}
+          >
+              {/* REACTOR OVERLAY CONTENT ... (No changes here) */}
+              <div 
+                 className={`absolute inset-0 bg-white ${selectedReactorMode.id === 'sleep_core' ? 'animate-pulse' : 'animate-pulse'}`} 
+                 style={{ 
+                     animationDuration: getReactorStrobeDuration(), 
+                     opacity: selectedReactorMode.id === 'sleep_core' ? 0.05 : 0.15,
+                     pointerEvents: 'none'
+                 }}
+              ></div>
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/10 to-transparent pointer-events-none"></div>
               
-              {/* ACTIVE BUTTON */}
-              <div className="relative flex-shrink-0">
-                  <button
-                    onClick={() => handleCategoryChange('ATIVOS')}
-                    className={`snap-start relative px-6 py-2 rounded-full border text-xs font-bold uppercase tracking-wider transition-all duration-500 transform-gpu flex items-center gap-2 overflow-hidden ${selectedCategory === 'ATIVOS' ? 'bg-slate-900 border-transparent text-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.2)] scale-105' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'} ${activeFrequencies.length > 0 && selectedCategory !== 'ATIVOS' ? 'border-amber-500/50 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]' : ''}`}
-                  >
-                    <Disc size={14} className={activeFrequencies.length > 0 ? 'animate-spin-slow' : ''} />
-                    <span>ATIVOS</span>
-                    
-                    {/* Smooth Reveal Counter */}
-                    <div className={`transition-all duration-500 ease-in-out overflow-hidden flex items-center ${activeFrequencies.length > 0 ? 'max-w-[30px] opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>
-                        <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 rounded-full">
-                           {activeFrequencies.length + (guardianEnabledByUser && !activeFrequencies.includes(GUARDIAN_FREQUENCY.id) && isPlaying ? 1 : 0)}
-                        </span>
-                    </div>
-                  </button>
+              <div className="relative z-10 flex flex-col items-center scale-150 pointer-events-none">
+                  <Visualizer isActive={true} speedMultiplier={selectedReactorMode.id === 'sleep_core' ? 0.2 : 4} breathDuration={selectedReactorMode.id === 'sleep_core' ? '10s' : '1s'} />
               </div>
 
-              {/* RECENTS BUTTON */}
-              <button
-                onClick={() => handleCategoryChange('RECENTES')}
-                className={`snap-start flex-shrink-0 px-6 py-2 rounded-full border text-xs font-bold uppercase tracking-wider transition-all duration-300 transform-gpu flex items-center gap-2 ${selectedCategory === 'RECENTES' ? 'bg-slate-800 text-purple-300 border-transparent shadow-[0_0_15px_rgba(216,180,254,0.2)] scale-105' : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'}`}
-              >
-                <Clock size={14} />
-                RECENTES
-              </button>
+              {showReactorHint && !showReactorUI && (
+                  <div className="absolute bottom-32 flex flex-col items-center animate-fade-in-up">
+                      <div className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-2 text-white/70">
+                          <MousePointerClick className="w-5 h-5 animate-bounce" />
+                          <span className="text-xs font-bold uppercase tracking-widest">Toque 2x para Opções</span>
+                      </div>
+                  </div>
+              )}
 
-              {/* FAVORITES BUTTON */}
-              <button
-                onClick={() => handleCategoryChange('FAVORITOS')}
-                className={`snap-start flex-shrink-0 px-6 py-2 rounded-full border text-xs font-bold uppercase tracking-wider transition-all duration-300 transform-gpu flex items-center gap-2 ${selectedCategory === 'FAVORITOS' ? 'bg-slate-800 text-pink-300 border-transparent shadow-[0_0_15px_rgba(249,168,212,0.2)] scale-105' : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'}`}
-              >
-                <Heart size={14} fill={selectedCategory === 'FAVORITOS' ? "currentColor" : "none"} />
-                FAVORITOS
-              </button>
+              <div className={`absolute bottom-0 left-0 right-0 z-50 flex flex-col items-center pb-16 pt-20 bg-gradient-to-t from-black via-black/80 to-transparent transition-opacity duration-300 ${showReactorUI ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+                  <div className="flex items-center gap-2 mb-8 bg-slate-900/80 backdrop-blur rounded-full p-1 border border-slate-700">
+                      {REACTOR_MODES.map(mode => (
+                          <button
+                            key={mode.id}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedReactorMode(mode);
+                                audioEngine.stopFrequency(REACTOR_FREQUENCY.id);
+                                setTimeout(() => {
+                                    audioEngine.playFrequency(REACTOR_FREQUENCY.id, mode.hz);
+                                }, 50);
+                            }}
+                            className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
+                                selectedReactorMode.id === mode.id
+                                ? 'bg-orange-600 text-white shadow'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                              {mode.name}
+                          </button>
+                      ))}
+                  </div>
 
-              {/* CATEGORY LIST */}
-              {CATEGORIES.map(cat => {
-                const theme = getCategoryTheme(cat);
-                const isSelected = selectedCategory === cat;
-                return (
+                  <h2 className="text-4xl font-orbitron font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-orange-400 to-red-500 mb-2">
+                      FUSÃO REATOR
+                  </h2>
+                  <p className="text-orange-200/60 text-sm tracking-[0.5em] font-light uppercase mb-8">
+                      {selectedReactorMode.description}
+                  </p>
+
                   <button
-                    key={cat}
-                    onClick={() => handleCategoryChange(cat)}
-                    className={`snap-start flex-shrink-0 px-6 py-2 rounded-full border text-xs font-bold uppercase tracking-wider transition-all duration-300 transform-gpu ${isSelected ? `bg-slate-900 ${theme.tabText} border-transparent ${theme.shadow} scale-105` : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'}`}
+                      onClick={(e) => { e.stopPropagation(); toggleFrequency(REACTOR_FREQUENCY); }}
+                      className="group flex items-center gap-3 px-8 py-4 rounded-full border border-red-500/50 bg-red-900/20 hover:bg-red-900/40 text-red-200 transition-all"
                   >
-                    {cat}
+                      <Power className="w-6 h-6" />
+                      <span className="font-bold tracking-widest">PARAR FUSÃO</span>
                   </button>
-                );
-              })}
+              </div>
+          </div>
+      )}
+
+      {/* HEADER */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#020617]/95 backdrop-blur-md border-b border-white/5 h-16 flex items-center px-8 justify-between">
+         <div className="flex items-center gap-4">
+             <button onClick={() => setShowMenu(true)} className="p-2 text-slate-400 hover:text-white transition-colors">
+                <Menu className="w-6 h-6" />
+             </button>
+             <h1 className="text-xl font-orbitron font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-cyan-200">
+               RESSAUREA
+             </h1>
+         </div>
+
+         <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setGuardianEnabledByUser(!guardianEnabledByUser)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-full transition-all duration-300 group ${
+                guardianEnabledByUser 
+                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]' 
+                  : 'text-slate-500'
+              }`}
+              title={guardianEnabledByUser ? "Proteção Ativa" : "Proteção Inativa"}
+            >
+              <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap hidden sm:inline-block">PROTEÇÃO BASE ATIVA</span>
+              <div className={`w-8 h-4 rounded-full border flex items-center p-0.5 transition-colors ${guardianEnabledByUser ? 'bg-cyan-500/20 border-cyan-400' : 'bg-slate-700 border-slate-600'}`}>
+                   <div className={`w-3 h-3 rounded-full bg-current shadow-sm transition-transform duration-300 ${guardianEnabledByUser ? 'translate-x-4' : 'translate-x-0'}`}></div>
+              </div>
+            </button>
+         </div>
+      </header>
+
+      {/* FOOTER PLAYER */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#020617]/95 backdrop-blur-xl border-t border-cyan-500/10 h-20 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.8)] flex items-center">
+         <div className="w-full px-8 flex items-center justify-between">
+             <button 
+               onClick={toggleAudibleMode}
+               className="flex flex-col items-center justify-center gap-1 group w-16 flex-shrink-0"
+             >
+                <div className={`p-1.5 rounded-full transition-all duration-300 ${isAudible ? 'text-cyan-400' : 'text-slate-500'}`}>
+                    {isAudible ? <Volume2 className="w-5 h-5" /> : <Volume1 className="w-5 h-5" />}
+                </div>
+                <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-500 group-hover:text-cyan-400 transition-colors whitespace-nowrap">
+                    {isAudible ? 'Audível' : 'Subliminar'}
+                </span>
+             </button>
+
+             <div className="flex items-center gap-6">
+                <button 
+                  onClick={handleStopAll} 
+                  className="w-10 h-10 flex items-center justify-center rounded-full text-slate-500 hover:text-red-400 transition-all border border-transparent hover:border-red-500/30 hover:bg-red-900/10 flex-shrink-0"
+                  title="Parar Tudo"
+                >
+                    <Square className="w-4 h-4 fill-current" />
+                </button>
+                
+                <button 
+                  onClick={togglePlayPauseGlobal}
+                  className="group relative w-14 h-14 rounded-full flex items-center justify-center transition-all hover:scale-105 flex-shrink-0"
+                >
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-b from-cyan-400 to-blue-600 opacity-90 blur-sm group-hover:opacity-100 group-hover:blur-md transition-all animate-pulse duration-[3000ms]"></div>
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-b from-cyan-500 to-blue-600 shadow-inner border border-white/20"></div>
+                    <div className="relative z-10 text-white drop-shadow-md">
+                        {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current pl-1" />}
+                    </div>
+                </button>
+             </div>
+
+             <button 
+               onClick={() => setShowSigns(true)}
+               className="flex flex-col items-center justify-center gap-1 group w-16 flex-shrink-0"
+             >
+                <div className="p-1.5 text-slate-500 group-hover:text-cyan-400 transition-all duration-300">
+                   <Activity className="w-5 h-5" />
+                </div>
+                <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-500 group-hover:text-cyan-400 transition-colors whitespace-nowrap">Sinais</span>
+             </button>
+         </div>
+      </div>
+
+      <main className="pt-16 pb-24">
+        
+        <div className="sticky top-16 z-40 bg-[#020617]/95 backdrop-blur-xl border-b border-white/5 pt-4 pb-0 shadow-2xl">
+           <div className="w-full px-8 space-y-4">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between bg-gradient-to-r from-cyan-950/40 to-cyan-900/20 p-3 rounded-lg border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.1)] transform-gpu subpixel-antialiased">
+                      <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all duration-500 ${isScalarMode ? 'bg-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.8)]' : 'bg-slate-900 text-cyan-500 border border-cyan-900'}`}>
+                              <Infinity className="w-5 h-5" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                              <div className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 to-blue-400">Modo Escalar</div>
+                              <button onClick={() => setShowScalarHelp(true)} className="p-1 text-slate-500 hover:text-cyan-400 rounded-full"><HelpCircle className="w-4 h-4"/></button>
+                          </div>
+                      </div>
+                      <button 
+                          onClick={toggleScalarMode}
+                          className={`w-10 h-5 rounded-full transition-colors relative ${isScalarMode ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'bg-slate-800'}`}>
+                          <div className={`absolute top-1 w-3 h-3 rounded-full transition-transform duration-300 ${isScalarMode ? 'translate-x-6 bg-white shadow-sm' : 'translate-x-1 bg-slate-400'}`}></div>
+                      </button>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-gradient-to-r from-red-900/20 to-orange-900/20 p-3 rounded-lg border border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.1)] transform-gpu subpixel-antialiased">
+                      <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border border-orange-500/50 shadow-lg ${isReactorActive ? 'bg-orange-500 text-white shadow-[0_0_15px_orange]' : 'bg-slate-900 text-orange-500'}`}>
+                              <Atom className={`w-5 h-5 ${isReactorActive ? 'animate-spin' : ''}`} />
+                          </div>
+                          <div className="flex items-center gap-2">
+                              <div className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-200 to-red-400">O Reator</div>
+                              <button onClick={() => setShowReactorHelp(true)} className="p-1 text-slate-500 hover:text-white rounded-full"><HelpCircle className="w-4 h-4"/></button>
+                          </div>
+                      </div>
+                      <button 
+                          onClick={() => toggleFrequency(REACTOR_FREQUENCY)}
+                          className={`w-10 h-5 rounded-full transition-colors relative ${isReactorActive ? 'bg-orange-500 shadow-[0_0_10px_orange]' : 'bg-slate-700'}`}>
+                          <div className={`absolute top-1 w-3 h-3 rounded-full transition-transform duration-300 ${isReactorActive ? 'translate-x-6 bg-white shadow-sm' : 'translate-x-1 bg-slate-400'}`}></div>
+                      </button>
+                  </div>
+              </div>
+
+              <div className="relative group scroll-mt-24">
+                  <div className={`absolute inset-0 bg-gradient-to-r rounded-full blur transition-opacity opacity-0 group-hover:opacity-30 ${searchMode === 'MATRIX' ? 'from-emerald-500 to-green-500' : 'from-cyan-500 to-blue-500'}`}></div>
+                  <div className={`relative bg-slate-900/90 border rounded-full flex items-center p-2 shadow-lg transition-colors ${searchMode === 'MATRIX' ? 'border-emerald-500/30 focus-within:border-emerald-500' : 'border-cyan-500/30 focus-within:border-cyan-500'}`}>
+                      <input 
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder={searchMode === 'MATRIX' ? "O que deseja baixar? (Ex: Inglês, Programação...)" : "Qual sua intenção? (Ex: Prosperidade, Amor...)"}
+                        className="bg-transparent border-none outline-none text-slate-200 text-sm w-full placeholder-slate-500 pl-4 py-2"
+                        onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
+                      />
+                      <div className="flex items-center gap-3 pr-1">
+                          <div className="flex items-center gap-1 bg-slate-800/50 rounded-full p-1 border border-slate-700">
+                              <button 
+                                 onClick={() => setSearchMode('INTENT')}
+                                 className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all leading-none flex items-center ${searchMode === 'INTENT' ? 'bg-cyan-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                              >
+                                  INTENÇÃO
+                              </button>
+                              <button 
+                                 onClick={() => setSearchMode('MATRIX')}
+                                 className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all leading-none flex items-center ${searchMode === 'MATRIX' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                              >
+                                  MATRIX
+                              </button>
+                          </div>
+                          <button 
+                            onClick={() => handleGenerate()}
+                            disabled={!searchTerm.trim() || isGenerating}
+                            className={`w-10 h-10 flex items-center justify-center rounded-full text-white transition-all shadow-lg hover:scale-105 disabled:opacity-50 disabled:scale-100 ${searchMode === 'MATRIX' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-cyan-600 hover:bg-cyan-500'}`}
+                          >
+                             {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudDownload className="w-4 h-4" />}
+                          </button>
+                      </div>
+                  </div>
+              </div>
+
+              {/* CATEGORY LIST - Spotify Style (Compact) */}
+              <div className="flex gap-[18px] overflow-x-auto pt-4 pb-2 px-8 -mx-8 category-scroll items-center w-[calc(100%+4rem)]">
+                  <div className="pl-0"></div>
+                  <button
+                      onClick={() => handleCategoryChange('All')}
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
+                          selectedCategory === 'All' 
+                          ? 'bg-slate-100 text-slate-900 border-0 shadow-[0_0_15px_rgba(255,255,255,0.2)] scale-105' 
+                          : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
+                      }`}
+                  >
+                      TODOS
+                  </button>
+
+                  {/* ATIVOS (PLAYING) CATEGORY - SMOOTH REVEAL */}
+                  <button
+                      onClick={() => handleCategoryChange('ATIVOS')}
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
+                          isAtivosSelected
+                            ? 'bg-amber-950/40 text-amber-100 border-0 shadow-[0_0_15px_rgba(245,158,11,0.5)] scale-105'
+                            : isAtivosHighlighted
+                                ? 'bg-amber-950/20 text-amber-500 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)] animate-pulse scale-100'
+                                : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
+                      }`}
+                  >
+                       <div className="flex items-center gap-2">
+                          <Disc className={`w-3.5 h-3.5 ${activeCount > 0 ? 'animate-spin-slow text-amber-400' : ''}`} /> 
+                          <span>ATIVOS</span>
+                          <div className={`overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] flex items-center ${activeCount > 0 ? 'max-w-[3rem] opacity-100' : 'max-w-0 opacity-0'}`}>
+                             <span className="pl-0.5">({activeCount})</span>
+                          </div>
+                       </div>
+                  </button>
+
+                  {/* RECENTES (HISTORY) CATEGORY */}
+                  <button
+                      onClick={() => handleCategoryChange('RECENTES')}
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center gap-2 hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
+                          selectedCategory === 'RECENTES' 
+                          ? 'bg-purple-900/30 text-purple-200 border-0 shadow-[0_0_10px_rgba(168,85,247,0.3)] scale-105' 
+                          : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
+                      }`}
+                  >
+                      <X className="w-3.5 h-3.5 text-purple-400" /> RECENTES
+                  </button>
+
+                  <button
+                      onClick={() => handleCategoryChange('FAVORITOS')}
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center gap-2 hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
+                          selectedCategory === 'FAVORITOS' 
+                          ? 'bg-rose-900/30 text-rose-200 border-0 shadow-[0_0_10px_rgba(244,63,94,0.3)] scale-105' 
+                          : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500'
+                      }`}
+                  >
+                      <Heart className="w-3.5 h-3.5 fill-current" /> FAVORITOS
+                  </button>
+
+                  {CATEGORIES.map(cat => {
+                      const theme = getCategoryTheme(cat);
+                      const isSelected = selectedCategory === cat;
+                      const textColor = isSelected 
+                         ? (cat === FrequencyCategory.ABUNDANCE || cat === FrequencyCategory.PERFORMANCE || cat === FrequencyCategory.ARCHETYPE ? 'text-slate-900' : 'text-white')
+                         : 'text-slate-400';
+
+                      return (
+                          <button
+                              key={cat}
+                              onClick={() => handleCategoryChange(cat)}
+                              className={`flex-shrink-0 px-4 py-2.5 rounded-full whitespace-nowrap text-[11px] font-bold tracking-wider transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] border flex items-center justify-center hover:scale-105 transform-gpu subpixel-antialiased [backface-visibility:hidden] ${
+                                  isSelected 
+                                  ? `bg-gradient-to-r ${theme.gradient} ${textColor} border-0 shadow-lg scale-105` 
+                                  : `bg-slate-900/50 text-slate-400 border-slate-700 hover:border-slate-500`
+                              }`}
+                          >
+                              {cat}
+                          </button>
+                      )
+                  })}
+                  <div className="pr-12"></div>
+              </div>
            </div>
         </div>
 
-        {/* --- GUARDIAN BANNER (INSIDE ACTIVOS) --- */}
-        {selectedCategory === 'ATIVOS' && guardianEnabledByUser && (
-            <div className="mb-6 relative overflow-hidden rounded-xl bg-slate-900 border border-slate-800 shadow-lg animate-fade-in-up">
-                <div className="absolute inset-0 bg-cyan-950/20"></div>
-                <div className="relative p-3 flex items-center justify-between">
-                     <div className="flex items-center gap-4">
-                        <div className="p-2 bg-cyan-900/30 rounded-lg text-cyan-400">
-                             <Shield size={20} />
-                        </div>
-                        <div>
-                             <h4 className="text-sm font-bold text-cyan-100">Proteção Base do Sistema</h4>
-                             <p className="text-[10px] text-cyan-400/70 uppercase tracking-wider">Escudo de Frequência 432Hz Ativo</p>
-                        </div>
-                     </div>
-                     <div 
-                       onClick={() => setGuardianEnabledByUser(!guardianEnabledByUser)}
-                       className="cursor-pointer"
-                     >
-                         <div className={`w-10 h-5 rounded-full relative transition-colors ${guardianEnabledByUser ? 'bg-cyan-500' : 'bg-slate-700'}`}>
-                            <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-transform duration-300 ${guardianEnabledByUser ? 'left-6' : 'left-1'}`}></div>
-                         </div>
-                     </div>
-                </div>
-            </div>
-        )}
+        {/* MAIN CONTENT FLUID WIDTH */}
+        <div className="w-full px-8 pt-6 min-h-[100vh]" ref={listTopRef}>
+          
+          <div className="mb-6 space-y-3">
+              <div className="relative group scroll-mt-32">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                      <Search className="w-4 h-4 text-slate-500" />
+                  </div>
+                  <input 
+                    ref={searchInputRef}
+                    type="text"
+                    value={filterTerm}
+                    onChange={(e) => setFilterTerm(e.target.value)}
+                    placeholder="Filtrar sua coleção..."
+                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:border-cyan-500/50 focus:bg-slate-900 transition-all placeholder-slate-600"
+                  />
+              </div>
 
-        {/* --- HISTORY TOOLS --- */}
-        {selectedCategory === 'RECENTES' && recentFrequencies.length > 0 && (
-             <div className="flex justify-end mb-4 animate-fade-in-up">
-                 <div className="flex items-center gap-3">
-                     <button 
-                        onClick={() => setIsSelectionMode(!isSelectionMode)}
-                        className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${isSelectionMode ? 'bg-cyan-900/30 text-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}
-                     >
-                         <ListChecks size={14} />
-                         Selecionar Vários
-                     </button>
-                     <button 
-                        onClick={() => setShowDeleteConfirm(true)}
-                        className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-500 hover:text-red-400 transition-colors"
-                     >
-                         <Eraser size={14} />
-                         Limpar Tudo
-                     </button>
+              {/* RECENTS HEADER ACTIONS */}
+              {selectedCategory === 'RECENTES' && recentFrequencies.length > 0 && !isSelectionMode && (
+                  <div className="flex justify-start mb-2">
+                       <button 
+                           onClick={clearRecents}
+                           className="flex items-center gap-2 text-[11px] font-bold text-slate-500 hover:text-red-400 bg-transparent px-2 py-1 transition-all group"
+                       >
+                           <Eraser className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" /> Limpar Histórico
+                       </button>
+                  </div>
+              )}
+
+              <div className="flex justify-end h-8 items-center">
+                   {!isSelectionMode ? (
+                       <button 
+                           onClick={() => {
+                               setIsSelectionMode(true);
+                               setSelectedItems(new Set());
+                           }}
+                           className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 px-4 py-2 rounded-full border border-slate-700 transition-all"
+                       >
+                           <ListChecks className="w-4 h-4" /> Selecionar Vários
+                       </button>
+                   ) : (
+                       <div className="flex items-center gap-2 animate-fadeIn">
+                           <button
+                              onClick={handleSelectAll}
+                              className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-300 text-xs font-bold border border-slate-600"
+                           >
+                              <CheckSquare className="w-3 h-3" /> Selecionar Tudo
+                           </button>
+                       </div>
+                   )}
+              </div>
+          </div>
+
+          {/* === GUARDIAN FREQUENCY BANNER (COMPACT / SLIM REDESIGN) === */}
+          {selectedCategory === 'ATIVOS' && guardianEnabledByUser && (
+              <div className="mb-6 animate-fade-in-up">
+                  <div className="relative overflow-hidden rounded-lg border border-cyan-500/50 bg-cyan-950/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] py-2 px-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shadow-[0_0_5px_rgba(6,182,212,0.3)]">
+                              <Shield className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                              <div className="flex items-center gap-2">
+                                  <h3 className="font-orbitron font-bold text-white text-xs tracking-wider">PROTEÇÃO BASE</h3>
+                                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>
+                              </div>
+                          </div>
+                      </div>
+                      
+                      <button 
+                          onClick={() => setGuardianEnabledByUser(false)}
+                          className="group flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-900/30 border border-cyan-500/30 hover:bg-red-900/30 hover:border-red-500/50 transition-all"
+                      >
+                          <span className="text-[10px] font-bold text-cyan-300 group-hover:text-red-300 transition-colors uppercase">Desativar</span>
+                          <div className="w-5 h-2.5 rounded-full bg-cyan-500/20 border border-cyan-500/50 relative group-hover:border-red-500/50 transition-colors">
+                              <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_5px_cyan] group-hover:bg-red-400 group-hover:shadow-[0_0_5px_red] transition-all"></div>
+                          </div>
+                      </button>
+                  </div>
+              </div>
+          )}
+
+          {/* SPOTIFY-LIKE DENSE GRID */}
+          {filteredFrequencies.some(f => f.id.startsWith('custom_') || f.id.startsWith('offline_')) && (
+             <div className="mb-8">
+                 <div className="flex items-center justify-between mb-4 ml-1">
+                    <h3 className="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
+                       <Cloud className="w-3 h-3" /> Minhas Frequências (Geradas)
+                    </h3>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                    {filteredFrequencies.filter(f => f.id.startsWith('custom_') || f.id.startsWith('offline_')).map(freq => renderCard(freq))}
                  </div>
              </div>
-        )}
+          )}
 
-        {/* --- MULTI-SELECT TOOLBAR (STANDARD) --- */}
-        {!isSelectionMode && selectedCategory !== 'RECENTES' && (
-             <div className="flex justify-end mb-4">
-                 <button 
-                    onClick={() => setIsSelectionMode(true)}
-                    className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-cyan-400 transition-colors uppercase tracking-wider"
-                 >
-                    <ListChecks size={16} />
-                    Selecionar Vários
-                 </button>
-             </div>
-        )}
+          {(selectedCategory !== 'All' || filteredFrequencies.some(f => !f.id.startsWith('custom_') && !f.id.startsWith('offline_'))) && (
+              <>
+                 {selectedCategory === 'All' && (
+                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Biblioteca do App</h3>
+                 )}
+                 {/* DENSE GRID LAYOUT */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-20">
+                    {filteredFrequencies.filter(f => !f.id.startsWith('custom_') && !f.id.startsWith('offline_')).map(freq => renderCard(freq))}
+                 </div>
+              </>
+          )}
 
-        {/* --- FREQUENCY GRID (SPOTIFY-LIKE) --- */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5 gap-4">
-            {filteredFrequencies.map((freq) => {
-              const isActive = activeFrequencies.includes(freq.id);
-              const isSelected = selectedItems.has(freq.id);
-              const theme = getCategoryTheme(freq.category);
-              const isConflicting = conflictingIds.includes(freq.id) && isActive;
-
-              return (
-                <div 
-                  key={freq.id}
-                  id={freq.id}
-                  onClick={() => toggleFrequency(freq)}
-                  className={`group relative overflow-hidden rounded-xl border transition-all duration-300 transform-gpu cursor-pointer flex flex-col h-full [backface-visibility:hidden]
-                    ${isActive 
-                        ? `bg-gradient-to-br ${theme.bg} ${theme.border} shadow-[0_0_20px_rgba(0,0,0,0.3)]` 
-                        : `bg-slate-900/40 border-slate-800/60 hover:border-slate-700 hover:bg-slate-800/40`
-                    }
-                    ${isSelected ? 'ring-2 ring-cyan-400 border-transparent' : ''}
-                    ${isConflicting ? 'border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)] animate-pulse' : ''}
-                  `}
-                >
-                  {/* CONFLICT WARNING BADGE - TOP EDGE */}
-                  {isConflicting && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 bg-amber-500 text-amber-950 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-sm shadow-lg flex items-center gap-1 animate-bounce">
-                          <AlertTriangle size={10} strokeWidth={3} />
-                          CONFLITO
-                      </div>
+          {filteredFrequencies.length === 0 && (
+              <div className="col-span-full text-center py-20 text-slate-500">
+                  {selectedCategory === 'ATIVOS' ? (
+                      <>
+                        <Volume2 className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                        <p>Nenhuma frequência tocando no momento.</p>
+                      </>
+                  ) : selectedCategory === 'RECENTES' ? (
+                      <>
+                        <History className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                        <p>Seu histórico está vazio.</p>
+                      </>
+                  ) : (
+                      <>
+                        <WifiOff className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                        <p>Nenhuma frequência encontrada.</p>
+                      </>
                   )}
-
-                  <div className="p-4 flex flex-col h-full relative z-10">
-                    {/* Header */}
-                    <div className="flex justify-between items-start gap-3 mb-2">
-                        {/* Play Button - Centered Vertically */}
-                        <div className="flex items-center h-full pt-1"> 
-                           <div 
-                              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${isActive ? `bg-white text-slate-900 scale-110` : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700 group-hover:scale-105'}`}
-                           >
-                              {isActive ? <Square size={14} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5"/>}
-                           </div>
-                        </div>
-
-                        {/* Hz Badge */}
-                        <div className={`px-2 py-0.5 rounded-full border text-[11px] font-bold whitespace-nowrap flex-shrink-0 ${isActive ? 'bg-black/30 border-white/20 text-white' : 'bg-slate-950/50 border-slate-800 text-slate-500'}`}>
-                           {freq.hz} Hz
-                        </div>
-                    </div>
-                    
-                    {/* Content */}
-                    <div className="flex-1 mt-1">
-                        <h3 className={`font-extrabold text-lg leading-tight mb-1 transition-colors ${isActive ? 'text-white' : 'text-slate-200 group-hover:text-white'}`}>
-                            {freq.name}
-                        </h3>
-                        <p className={`text-sm font-medium leading-snug transition-colors ${isActive ? 'text-slate-300' : 'text-slate-500 group-hover:text-slate-400'}`}>
-                            {freq.description}
-                        </p>
-                    </div>
-
-                    {/* Actions Row */}
-                    <div className={`flex items-center justify-end gap-2 mt-4 transition-opacity duration-300 ${isSelectionMode ? 'opacity-0' : 'opacity-100'}`}>
-                        {/* Favorite */}
-                        <button 
-                            onClick={(e) => toggleFavorite(e, freq.id)}
-                            className={`p-1.5 rounded-lg transition-colors ${favorites.includes(freq.id) ? 'text-pink-400' : 'text-slate-600 hover:text-pink-300'}`}
-                        >
-                            <Heart size={16} fill={favorites.includes(freq.id) ? "currentColor" : "none"} />
-                        </button>
-
-                        {/* Download */}
-                        <button 
-                             onClick={(e) => handleDownload(e, freq)}
-                             className={`p-1.5 rounded-lg transition-colors ${isDownloading === freq.id ? 'text-cyan-400 animate-pulse' : 'text-slate-600 hover:text-cyan-300'}`}
-                        >
-                            {isDownloading === freq.id ? <Loader2 size={16} className="animate-spin"/> : <Download size={16} />}
-                        </button>
-
-                        {/* Delete / Remove History */}
-                        <button 
-                             onClick={(e) => { e.stopPropagation(); setSingleDeleteId(freq.id); setShowDeleteConfirm(true); }}
-                             className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 transition-colors"
-                        >
-                            {/* IF RECENTES -> 'X' (Remove), ELSE -> 'Trash' (Delete) */}
-                            {selectedCategory === 'RECENTES' ? <X size={16} /> : <Trash2 size={16} />}
-                        </button>
-                    </div>
-
-                    {/* Selection Overlay Checkmark */}
-                    {isSelected && (
-                        <div className="absolute top-2 right-2 text-cyan-400 bg-cyan-950/50 rounded-full p-1 shadow-sm animate-in zoom-in duration-200">
-                            <CheckCircle2 size={18} fill="currentColor" className="text-cyan-950" />
-                        </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+              </div>
+          )}
         </div>
       </main>
 
-      {/* --- SELECTION DOCK --- */}
-      {isSelectionMode && selectedItems.size > 0 && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-fade-in-up">
-              <div className="bg-[#0f172a] border border-slate-700 rounded-2xl shadow-2xl flex items-center p-2 gap-4 pr-4">
-                   {/* Counter */}
-                   <div className="pl-3 pr-4 border-r border-slate-700 flex flex-col justify-center">
-                        <span className="text-xl font-bold text-white leading-none text-center">{selectedItems.size}</span>
-                        <span className="text-[9px] text-slate-500 uppercase font-bold">Selecionados</span>
-                   </div>
-                   
-                   {/* Actions */}
-                   <div className="flex items-center gap-2">
-                       <button 
+      {/* --- FLOATING UNIFIED ACTION BAR (BOTTOM DOCK) --- */}
+      {isSelectionMode && (
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] animate-fade-in-up w-auto max-w-[95vw]">
+              <div className="flex items-center bg-slate-900/90 backdrop-blur-xl border border-slate-700 rounded-full shadow-2xl p-1 gap-1">
+                  
+                  <div className="flex items-center gap-2 px-4 py-2 border-r border-slate-700/50">
+                      <div className="w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                          {selectedItems.size}
+                      </div>
+                      <span className="text-xs font-bold text-slate-400 uppercase hidden sm:block">Selecionados</span>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                      <button 
                           onClick={() => setIsSelectionMode(false)}
-                          className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-bold uppercase transition-colors"
-                       >
-                           Cancelar
-                       </button>
+                          className="px-4 py-2.5 text-slate-300 hover:text-white hover:bg-slate-800 font-bold rounded-full transition-all text-xs"
+                      >
+                          Cancelar
+                      </button>
 
-                       <button 
-                          onClick={handleDownloadSelected}
-                          className="px-4 py-2 rounded-lg bg-slate-800 text-cyan-400 hover:bg-slate-700 text-xs font-bold uppercase transition-colors flex items-center gap-2"
-                       >
-                           <Download size={14} />
-                           Baixar
-                       </button>
+                      {selectedItems.size > 0 && (
+                          <>
+                            {selectedCategory !== 'RECENTES' && (
+                                <>
+                                    <button 
+                                        onClick={handleDownloadSelected}
+                                        className="p-2.5 text-cyan-400 hover:bg-cyan-900/20 rounded-full transition-all"
+                                        title="Baixar Selecionados"
+                                    >
+                                        <Download className="w-5 h-5" />
+                                    </button>
 
-                       <button 
-                          onClick={handlePlaySelected}
-                          className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 text-xs font-bold uppercase transition-colors shadow-lg shadow-emerald-900/50 flex items-center gap-2"
-                       >
-                           <Play size={14} fill="currentColor" />
-                           Tocar
-                       </button>
-
-                       <button 
-                          onClick={handleDeleteSelected}
-                          className="px-4 py-2 rounded-lg bg-red-900/50 text-red-400 hover:bg-red-900/80 text-xs font-bold uppercase transition-colors border border-red-900"
-                       >
-                           {selectedCategory === 'RECENTES' ? 'Remover' : 'Apagar'}
-                       </button>
-                   </div>
+                                    <button 
+                                        onClick={handlePlaySelected}
+                                        className="p-2.5 text-emerald-400 hover:bg-emerald-900/20 rounded-full transition-all"
+                                        title="Tocar Selecionados"
+                                    >
+                                        <Play className="w-5 h-5 fill-current" />
+                                    </button>
+                                </>
+                            )}
+                            
+                            <button 
+                                onClick={() => setShowDeleteConfirm(true)}
+                                className="p-2.5 text-red-400 hover:bg-red-900/20 rounded-full transition-all"
+                                title={selectedCategory === 'RECENTES' ? "Remover do Histórico" : "Apagar Selecionados"}
+                            >
+                                {selectedCategory === 'RECENTES' ? <X className="w-5 h-5" /> : <Trash2 className="w-5 h-5" />}
+                            </button>
+                          </>
+                      )}
+                  </div>
               </div>
           </div>
       )}
-
-      {/* --- REACTOR UI OVERLAY --- */}
-      {showReactorUI && (
-         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center animate-fadeIn">
-            <button 
-               onClick={() => setShowReactorUI(false)}
-               className="absolute top-6 right-6 text-slate-500 hover:text-white"
-            >
-               <X size={32} />
-            </button>
-            
-            <div className="text-center mb-8">
-               <div className="inline-block p-4 rounded-full bg-orange-500/10 mb-4 animate-pulse">
-                  <Atom size={64} className="text-orange-500 animate-spin" style={{ animationDuration: '4s' }}/>
-               </div>
-               <h2 className="text-3xl font-orbitron font-bold text-white mb-2 tracking-widest">O REATOR</h2>
-               <p className="text-orange-400 text-sm tracking-widest uppercase">Núcleo de Fusão Escalar</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full px-6">
-               {REACTOR_MODES.map(mode => (
-                  <button
-                     key={mode.id}
-                     onClick={() => setSelectedReactorMode(mode)}
-                     className={`p-6 rounded-2xl border transition-all duration-300 group text-left relative overflow-hidden ${selectedReactorMode.id === mode.id ? 'bg-orange-950/30 border-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.2)]' : 'bg-slate-900 border-slate-800 hover:border-slate-600'}`}
-                  >
-                     <div className={`absolute top-0 left-0 w-1 h-full transition-all ${selectedReactorMode.id === mode.id ? 'bg-orange-500' : 'bg-transparent'}`}></div>
-                     <div className="mb-3 flex justify-between items-start">
-                        <span className={`text-xs font-bold px-2 py-1 rounded bg-black/50 ${selectedReactorMode.id === mode.id ? 'text-orange-400' : 'text-slate-500'}`}>{mode.hz} Hz</span>
-                        {selectedReactorMode.id === mode.id && <Activity size={18} className="text-orange-500 animate-pulse" />}
+      
+      {/* ... Rest of the component (Menu, Modals, etc.) remains same ... */}
+      {showMenu && (
+        <div className="fixed inset-0 z-[100] flex justify-start bg-black/60 backdrop-blur-sm">
+             <div className="bg-slate-900 border-r border-slate-700 w-80 h-full p-6 relative shadow-2xl animate-fade-in-up">
+                 <button onClick={() => setShowMenu(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X className="w-6 h-6"/></button>
+                 
+                 <h2 className="text-2xl font-orbitron font-bold text-white mb-8 border-b border-slate-700 pb-4">Menu</h2>
+                 
+                 <div className="space-y-6">
+                     <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Status da Rede</h3>
+                            <div className={`w-2 h-2 rounded-full ${isOffline ? 'bg-slate-500' : 'bg-cyan-400 shadow-[0_0_8px_cyan]'}`}></div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                             <Globe className={`w-8 h-8 ${isOffline ? 'text-slate-600' : 'text-cyan-400'}`} />
+                             <div>
+                                 <p className={`text-sm font-bold ${isOffline ? 'text-slate-300' : 'text-white'}`}>
+                                     {isOffline ? 'Modo Offline' : 'Rede Quântica'}
+                                 </p>
+                                 <p className="text-[10px] text-slate-500">
+                                     {isOffline ? 'Banco de dados local ativo.' : 'Conectado à nuvem.'}
+                                 </p>
+                             </div>
+                        </div>
                      </div>
-                     <h3 className={`font-bold text-lg mb-1 ${selectedReactorMode.id === mode.id ? 'text-white' : 'text-slate-300'}`}>{mode.name}</h3>
-                     <p className="text-xs text-slate-500 leading-relaxed">{mode.description}</p>
-                  </button>
-               ))}
-            </div>
 
-            {/* INTERNAL HINT */}
-            {showReactorHint && (
-                <div className="mt-12 flex items-center gap-2 text-slate-500 animate-pulse bg-black/50 px-4 py-2 rounded-full border border-slate-800">
-                    <MousePointerClick size={16} />
-                    <span className="text-xs tracking-widest uppercase">Toque duas vezes para Opções</span>
-                </div>
-            )}
-         </div>
-      )}
+                     <div>
+                         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                             <Settings className="w-3 h-3" /> Configurações
+                         </h3>
+                         
+                         <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                             <div className="flex items-center gap-2 text-white font-bold text-sm mb-3">
+                                 <FolderOpen className="w-4 h-4 text-cyan-400" /> Destino dos Downloads
+                             </div>
+                             
+                             <div className="space-y-3">
+                                 <label className="flex items-center gap-3 cursor-pointer group">
+                                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${downloadMode === 'auto' ? 'border-cyan-400' : 'border-slate-600'}`}>
+                                         {downloadMode === 'auto' && <div className="w-2 h-2 rounded-full bg-cyan-400"></div>}
+                                     </div>
+                                     <input type="radio" className="hidden" checked={downloadMode === 'auto'} onChange={() => changeDownloadMode('auto')} />
+                                     <span className={`text-xs ${downloadMode === 'auto' ? 'text-white' : 'text-slate-400 group-hover:text-slate-300'}`}>
+                                         Automático (Pasta Padrão)
+                                     </span>
+                                 </label>
 
-      {/* --- FOOTER / VISUALIZER BAR --- */}
-      {hasStarted && (
-        <div className="fixed bottom-0 left-0 right-0 h-24 bg-[#020617]/90 backdrop-blur-xl border-t border-slate-800/50 z-40 flex items-center justify-between px-6 md:px-12">
-           <div className="hidden md:flex flex-col">
-               <span className="text-[10px] text-slate-500 tracking-[0.2em] uppercase mb-1">Subliminar</span>
-               <div className="flex items-center gap-3">
-                   <button onClick={toggleAudibleMode} className="text-slate-400 hover:text-white transition-colors">
-                       {isAudible ? <Volume2 size={18} /> : <Volume1 size={18} />}
-                   </button>
-               </div>
-           </div>
+                                 <label className="flex items-center gap-3 cursor-pointer group">
+                                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${downloadMode === 'ask' ? 'border-cyan-400' : 'border-slate-600'}`}>
+                                         {downloadMode === 'ask' && <div className="w-2 h-2 rounded-full bg-cyan-400"></div>}
+                                     </div>
+                                     <input type="radio" className="hidden" checked={downloadMode === 'ask'} onChange={() => changeDownloadMode('ask')} />
+                                     <span className={`text-xs ${downloadMode === 'ask' ? 'text-white' : 'text-slate-400 group-hover:text-slate-300'}`}>
+                                         Escolher Pasta (Manual)
+                                     </span>
+                                 </label>
+                             </div>
+                         </div>
+                     </div>
 
-           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center gap-8">
-               {/* Stop Button */}
-               <button 
-                  onClick={handleStopAll}
-                  className="p-3 rounded-full text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all active:scale-95"
-                  title="Parar Tudo"
-               >
-                   <Square size={12} fill="currentColor" />
-               </button>
-
-               {/* Main Visualizer/Play Toggle */}
-               <div className="relative group cursor-pointer" onClick={togglePlayPauseGlobal}>
-                   <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full group-hover:bg-cyan-400/30 transition-all duration-500"></div>
-                   <div className="relative w-16 h-16 bg-slate-900 rounded-full border border-slate-700 flex items-center justify-center shadow-2xl overflow-hidden">
-                       <Visualizer isActive={isPlaying && activeFrequencies.length > 0} speedMultiplier={speedMult} breathDuration={stats.breath} />
-                       
-                       {/* Overlay Icon */}
-                       <div className="absolute inset-0 flex items-center justify-center z-20 bg-black/20 hover:bg-black/10 transition-colors">
-                            {isPlaying ? <Pause fill="white" size={20} className="text-white drop-shadow-md" /> : <Play fill="white" size={20} className="text-white ml-1 drop-shadow-md" />}
-                       </div>
-                   </div>
-               </div>
-               
-               {/* Reactor Status */}
-               <button 
-                  onClick={(e) => {
-                      if(!activeFrequencies.includes(REACTOR_FREQUENCY.id)) toggleFrequency(REACTOR_FREQUENCY);
-                      else handleDoubleTap(e);
-                  }}
-                  className={`p-3 rounded-full transition-all active:scale-95 ${isReactorActive ? 'text-orange-500 bg-orange-950/30 shadow-[0_0_10px_rgba(249,115,22,0.2)]' : 'text-slate-500 hover:text-orange-400'}`}
-                  title="Reator"
-               >
-                   <Atom size={18} className={isReactorActive ? 'animate-spin' : ''} style={{ animationDuration: '4s' }} />
-               </button>
-           </div>
-
-           <div className="hidden md:flex flex-col items-end">
-               <span className="text-[10px] text-slate-500 tracking-[0.2em] uppercase mb-1">Sinais</span>
-               <button 
-                  onClick={() => setShowSigns(true)}
-                  className="text-slate-400 hover:text-cyan-400 transition-colors"
-               >
-                   <Activity size={18} />
-               </button>
-           </div>
+                     <div className="border-t border-slate-700 pt-6">
+                         <button 
+                             onClick={handleBackToStart}
+                             className="flex items-center gap-3 text-slate-400 hover:text-red-400 transition-colors w-full"
+                         >
+                             <LogOut className="w-5 h-5" />
+                             <span>Voltar ao Início</span>
+                         </button>
+                     </div>
+                 </div>
+             </div>
+             <div className="flex-1" onClick={() => setShowMenu(false)}></div>
         </div>
       )}
 
-      {/* --- MODALS & ALERTS --- */}
-      
-      {/* DELETE CONFIRM */}
       {showDeleteConfirm && (
-          <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl animate-fade-in-up">
-                  <h3 className="text-lg font-bold text-white mb-2">
-                      {selectedCategory === 'RECENTES' ? 'Remover do Histórico?' : 'Apagar Definitivamente?'}
+          <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+              <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 relative shadow-2xl">
+                  <h3 className="text-xl font-bold text-white mb-2 text-center">
+                      {selectedCategory === 'RECENTES' ? "Limpar do Histórico?" : "Apagar Frequências?"}
                   </h3>
-                  <p className="text-slate-400 text-sm mb-6">
-                      {selectedCategory === 'RECENTES' 
-                        ? 'Isso apenas remove o item da lista de recentes. O arquivo original permanece no app.'
-                        : 'Você está prestes a excluir este item. Se for um arquivo gerado, ele será perdido.'}
+                  <p className="text-slate-400 text-center text-sm mb-6">
+                      {singleDeleteId 
+                        ? (selectedCategory === 'RECENTES' ? <span>Remover esta frequência dos recentes?</span> : <span>Deseja apagar esta frequência permanentemente?</span>)
+                        : (selectedCategory === 'RECENTES' ? <span>Remover <span className="text-red-400 font-bold">{selectedItems.size}</span> itens do histórico?</span> : <span>Você selecionou <span className="text-red-400 font-bold">{selectedItems.size}</span> itens para exclusão.</span>)
+                      }
+                      <br/>
+                      <span className="text-xs mt-2 block opacity-70">
+                          {selectedCategory === 'RECENTES' ? "A frequência continuará existindo no app." : "Elas serão removidas da sua lista visual."}
+                      </span>
                   </p>
-                  <div className="flex justify-end gap-3">
+                  <div className="flex gap-3">
                       <button 
-                        onClick={() => setShowDeleteConfirm(false)}
-                        className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-bold text-xs uppercase hover:bg-slate-700"
+                          onClick={() => { setShowDeleteConfirm(false); setSingleDeleteId(null); }}
+                          className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold hover:bg-slate-700 transition-colors"
                       >
                           Cancelar
                       </button>
                       <button 
-                        onClick={handleDeleteSelected}
-                        className="px-4 py-2 rounded-lg bg-red-600 text-white font-bold text-xs uppercase hover:bg-red-500 shadow-lg shadow-red-900/50"
+                          onClick={handleDeleteSelected}
+                          className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-500 transition-colors shadow-lg shadow-red-900/20"
                       >
-                          Confirmar
+                          {selectedCategory === 'RECENTES' ? "Remover" : "Apagar"}
                       </button>
                   </div>
               </div>
           </div>
       )}
 
-      {/* SUCCESS TOAST */}
-      {showSuccessMsg && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-emerald-500/10 border border-emerald-500/50 text-emerald-400 px-6 py-3 rounded-full backdrop-blur-md shadow-lg flex items-center gap-3 animate-fade-in-up">
-           <CheckCircle2 size={20} />
-           <span className="text-sm font-bold">Frequência Gerada com Sucesso</span>
-        </div>
-      )}
+      <div className={`fixed top-40 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 ${showSuccessMsg ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
+         <div className="bg-emerald-500/90 text-white px-6 py-2 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.5)] backdrop-blur-md flex items-center gap-2 font-bold tracking-wide">
+             <CheckCircle2 className="w-5 h-5" />
+             Frequência Gerada com Sucesso
+         </div>
+      </div>
 
-      {/* NETWORK TOAST */}
-      {networkMsg.show && (
-        <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full backdrop-blur-md shadow-lg flex items-center gap-3 animate-fade-in-up border ${networkMsg.type === 'success' ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-400' : 'bg-amber-500/10 border-amber-500/50 text-amber-400'}`}>
-           {networkMsg.type === 'success' ? <Wifi size={20} /> : <WifiOff size={20} />}
-           <span className="text-sm font-bold">{networkMsg.msg}</span>
-        </div>
-      )}
-      
-      {/* SIGNS MODAL */}
-      {showSigns && (
-        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowSigns(false)}>
-           <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl relative" onClick={e => e.stopPropagation()}>
-               <button onClick={() => setShowSigns(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20} /></button>
-               <h3 className="text-xl font-orbitron font-bold text-cyan-400 mb-4 flex items-center gap-2">
-                   <Activity size={24} /> Sinais de Ressonância
-               </h3>
-               <ul className="space-y-3 text-slate-300 text-sm">
-                   <li className="flex items-start gap-2"><div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1.5"></div><span><strong>Calor ou Formigamento:</strong> Fluxo de energia ativado (Chi/Prana).</span></li>
-                   <li className="flex items-start gap-2"><div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1.5"></div><span><strong>Bocejos ou Suspiros:</strong> Liberação de bloqueios energéticos.</span></li>
-                   <li className="flex items-start gap-2"><div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1.5"></div><span><strong>Pressão na Testa:</strong> Ativação da glândula pineal (3º Visão).</span></li>
-                   <li className="flex items-start gap-2"><div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1.5"></div><span><strong>Gosto Metálico:</strong> Desintoxicação vibracional intensa (Boca).</span></li>
-                   <li className="flex items-start gap-2"><div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1.5"></div><span><strong>Paz Súbita:</strong> Alinhamento com o Ponto Zero.</span></li>
-                   <li className="flex items-start gap-2"><div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1.5"></div><span><strong>Sonolência:</strong> O cérebro entrando em ondas Theta/Delta para cura.</span></li>
-               </ul>
-           </div>
-        </div>
-      )}
-
-      {/* SCALAR HELP MODAL */}
-      {showScalarHelp && (
-        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowScalarHelp(false)}>
-           <div className="bg-slate-900 border border-cyan-500/30 rounded-2xl max-w-md w-full p-6 shadow-[0_0_50px_rgba(6,182,212,0.1)] relative" onClick={e => e.stopPropagation()}>
-               <button onClick={() => setShowScalarHelp(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20} /></button>
-               <h3 className="text-xl font-orbitron font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 mb-2">
-                   Ondas Escalares
-               </h3>
-               <p className="text-xs text-slate-500 uppercase tracking-widest mb-4">Tecnologia Zero Point</p>
-               <p className="text-slate-300 text-sm leading-relaxed mb-4">
-                   Diferente das ondas hertzianas comuns que viajam em linha, as Ondas Escalares são estacionárias e criam um campo de "Ponto Zero" (Vácuo Quântico).
-               </p>
-               <div className="bg-black/30 p-4 rounded-xl border border-slate-800 mb-4">
-                   <h4 className="text-cyan-400 text-xs font-bold uppercase mb-2">Efeito no App:</h4>
-                   <p className="text-slate-400 text-xs">
-                       O modo escalar cria dois sinais idênticos mas opostos (-180º de fase) em cada canal do fone de ouvido. Isso cancela o som "físico" para o cérebro, mas a <strong>informação energética</strong> permanece pura, indo direto ao subconsciente sem resistência.
-                   </p>
-               </div>
-           </div>
-        </div>
-      )}
-
-      {/* REACTOR HELP MODAL */}
-      {showReactorHelp && (
-        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowReactorHelp(false)}>
-           <div className="bg-slate-900 border border-orange-500/30 rounded-2xl max-w-md w-full p-6 shadow-[0_0_50px_rgba(249,115,22,0.1)] relative" onClick={e => e.stopPropagation()}>
-               <button onClick={() => setShowReactorHelp(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20} /></button>
-               <h3 className="text-xl font-orbitron font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500 mb-2">
-                   O Reator
-               </h3>
-               <p className="text-xs text-slate-500 uppercase tracking-widest mb-4">Núcleo de Fusão</p>
-               <div className="space-y-4">
-                   <p className="text-slate-300 text-sm leading-relaxed">
-                       O Reator é o motor central do Ressaurea. É um pilar de força vibracional que sustenta todas as outras frequências.
-                   </p>
-                   <div className="grid grid-cols-2 gap-3">
-                       <div className="bg-black/30 p-3 rounded-lg border border-slate-800">
-                           <span className="text-orange-500 font-bold block mb-1">Nível Supremo</span>
-                           <p className="text-[10px] text-slate-400">A base mais potente de todo o sistema. Use com moderação.</p>
-                       </div>
-                       <div className="bg-black/30 p-3 rounded-lg border border-slate-800">
-                           <span className="text-orange-500 font-bold block mb-1">Fusão Gamma</span>
-                           <p className="text-[10px] text-slate-400">Sincroniza os hemisférios cerebrais para processamento máximo.</p>
-                       </div>
-                   </div>
-               </div>
-           </div>
-        </div>
-      )}
-
-      {/* MENU MODAL */}
-      {showMenu && (
-        <div className="fixed inset-0 z-[70] bg-[#020617] animate-fade-in-up">
-            <div className="p-6 max-w-2xl mx-auto">
-                <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-2xl font-orbitron font-bold text-white">Configurações</h2>
-                    <button onClick={() => setShowMenu(false)} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
-                        <X size={24} className="text-slate-400" />
-                    </button>
-                </div>
-
-                <div className="space-y-8">
-                    {/* DOWNLOAD SETTINGS */}
-                    <section>
-                        <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <FolderOpen size={16} /> Downloads
-                        </h3>
-                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-1">
-                            <button 
-                                onClick={() => changeDownloadMode('auto')}
-                                className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${downloadMode === 'auto' ? 'bg-slate-800 border border-cyan-500/30' : 'hover:bg-slate-800/50 border border-transparent'}`}
-                            >
-                                <div className="text-left">
-                                    <span className={`block font-bold text-sm mb-1 ${downloadMode === 'auto' ? 'text-white' : 'text-slate-400'}`}>Automático (Padrão)</span>
-                                    <span className="text-xs text-slate-500">Salva na pasta Downloads do navegador.</span>
-                                </div>
-                                <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${downloadMode === 'auto' ? 'border-cyan-500' : 'border-slate-600'}`}>
-                                    {downloadMode === 'auto' && <div className="w-2.5 h-2.5 bg-cyan-500 rounded-full"></div>}
-                                </div>
-                            </button>
-
-                            <div className="h-px bg-slate-800 mx-4"></div>
-
-                            <button 
-                                onClick={() => changeDownloadMode('ask')}
-                                className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${downloadMode === 'ask' ? 'bg-slate-800 border border-cyan-500/30' : 'hover:bg-slate-800/50 border border-transparent'}`}
-                            >
-                                <div className="text-left">
-                                    <span className={`block font-bold text-sm mb-1 ${downloadMode === 'ask' ? 'text-white' : 'text-slate-400'}`}>Escolher Pasta (Manual)</span>
-                                    <span className="text-xs text-slate-500">Pergunta onde salvar a cada arquivo.</span>
-                                </div>
-                                <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${downloadMode === 'ask' ? 'border-cyan-500' : 'border-slate-600'}`}>
-                                    {downloadMode === 'ask' && <div className="w-2.5 h-2.5 bg-cyan-500 rounded-full"></div>}
-                                </div>
-                            </button>
-                        </div>
-                    </section>
-
-                     {/* DATA MANAGEMENT */}
-                     <section>
-                        <h3 className="text-sm font-bold text-red-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <Trash2 size={16} /> Zona de Perigo
-                        </h3>
-                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <div>
-                                    <span className="block font-bold text-slate-300 text-sm">Limpar Histórico Recente</span>
-                                    <span className="text-xs text-slate-500">Remove a lista de reprodução recente.</span>
-                                </div>
-                                <button 
-                                   onClick={() => { clearRecents(); setShowSuccessMsg(true); setTimeout(() => setShowSuccessMsg(false), 2000); }}
-                                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-lg transition-colors"
-                                >
-                                    Limpar
-                                </button>
-                            </div>
-                            
-                            <div className="h-px bg-slate-800 mb-4"></div>
-
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <span className="block font-bold text-red-300 text-sm">Resetar App</span>
-                                    <span className="text-xs text-slate-500">Apaga favoritos, gerados e configurações.</span>
-                                </div>
-                                <button 
-                                   onClick={() => { localStorage.clear(); window.location.reload(); }}
-                                   className="px-4 py-2 bg-red-900/20 hover:bg-red-900/40 text-red-400 border border-red-900/50 text-xs font-bold rounded-lg transition-colors"
-                                >
-                                    Resetar Tudo
-                                </button>
-                            </div>
-                        </div>
-                     </section>
-                     
-                     <div className="pt-8 text-center">
-                         <p className="text-[10px] text-slate-600 uppercase tracking-widest">Ressaurea v2.0 (Quantum Core)</p>
-                     </div>
-                </div>
-            </div>
-        </div>
-      )}
+      <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 ${networkMsg.show ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
+         <div className={`px-6 py-2 rounded-full shadow-lg backdrop-blur-md flex items-center gap-2 font-bold tracking-wide text-xs ${networkMsg.type === 'success' ? 'bg-cyan-500/90 text-white shadow-cyan-500/20' : 'bg-amber-500/90 text-white shadow-amber-500/20'}`}>
+             {networkMsg.type === 'success' ? <Wifi className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+             {networkMsg.msg}
+         </div>
+      </div>
     </div>
   );
+
+  function renderCard(freq: Frequency) {
+      if (freq.id === GUARDIAN_FREQUENCY.id) return null;
+
+      const isActive = activeFrequencies.includes(freq.id);
+      const isConflicting = conflictingIds.includes(freq.id);
+      const theme = getCategoryTheme(freq.category);
+      const isFav = favorites.includes(freq.id);
+      const downloading = isDownloading === freq.id;
+      const isSelectedForDelete = selectedItems.has(freq.id);
+      
+      return (
+          <div 
+            key={freq.id}
+            id={freq.id}
+            onClick={() => isSelectionMode && toggleSelection(freq.id)}
+            className={`relative overflow-hidden rounded-lg border transition-all duration-500 group transform-gpu subpixel-antialiased [backface-visibility:hidden] h-auto min-h-[140px] flex flex-col ${
+                isSelectionMode 
+                   ? isSelectedForDelete 
+                       ? 'bg-cyan-900/30 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)] scale-[0.98]' 
+                       : 'bg-slate-900/40 border-slate-600 hover:border-slate-400 cursor-pointer'
+                   : isActive 
+                       ? `${theme.bg} ${theme.border} ${theme.shadow} scale-[1.02]` 
+                       : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'
+            }`}
+          >
+            {isActive && !isSelectionMode && (
+                <div className={`absolute inset-0 bg-gradient-to-r ${theme.gradient} opacity-5`}></div>
+            )}
+
+            {/* CONFLICT WARNING OVERLAY (IMPROVED POSITIONING) */}
+            {isConflicting && !isSelectionMode && isActive && (
+                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-40 w-full flex justify-center pointer-events-none">
+                     <div className="bg-amber-500 text-black text-[9px] font-bold px-3 py-1 rounded-b-lg shadow-[0_4px_10px_rgba(245,158,11,0.5)] border-x border-b border-amber-300 flex items-center gap-1.5 transform-gpu animate-pulse">
+                         <AlertTriangle className="w-3 h-3" />
+                         <span>CONFLITO</span>
+                     </div>
+                 </div>
+            )}
+            
+            {isSelectionMode && (
+                <div className="absolute top-3 right-3 z-20 animate-fade-in-up">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelectedForDelete ? 'bg-cyan-500 border-cyan-500 shadow-lg' : 'border-slate-500 bg-slate-900/50'}`}>
+                        {isSelectedForDelete && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                </div>
+            )}
+
+            <div className={`p-4 flex items-center justify-between relative z-10 ${isSelectionMode ? 'pointer-events-none' : ''} h-full`}>
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleFrequency(freq); }}
+                      className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-700 shadow-lg border border-white/10 ${
+                          isActive 
+                          ? `bg-gradient-to-br ${theme.gradient} text-white scale-110 shadow-[0_0_15px_rgba(255,255,255,0.3)]` 
+                          : 'bg-slate-800 text-slate-500 group-hover:bg-slate-700'
+                      }`}
+                      disabled={isSelectionMode}
+                    >
+                        {isActive ? (
+                            <div className="bg-black/20 w-8 h-8 rounded-full flex items-center justify-center shadow-inner">
+                                <Square className="w-3.5 h-3.5 fill-white text-white" />
+                            </div>
+                        ) : (
+                            <Play className="w-4 h-4 fill-current pl-0.5" />
+                        )}
+                    </button>
+
+                    <div className="flex-1 min-w-0 flex flex-col h-full">
+                        <div className="flex justify-between items-start w-full gap-2 pr-2 mb-1">
+                            <h3 className={`font-rajdhani font-bold text-base leading-tight break-words ${isActive ? 'text-white' : 'text-slate-200'}`}>
+                                {freq.name}
+                            </h3>
+                            <span className={`flex items-center justify-center text-[11px] font-bold px-2 py-0.5 rounded-full border bg-opacity-20 whitespace-nowrap flex-shrink-0 mt-0.5 ${isActive ? 'border-white/30 text-white' : 'border-slate-700 text-slate-500'}`}>
+                                {freq.hz} Hz
+                            </span>
+                        </div>
+                        <p className={`text-sm leading-relaxed font-medium break-words ${isActive ? 'text-slate-200' : 'text-slate-300'}`}>
+                            {freq.description}
+                        </p>
+                    </div>
+                </div>
+
+                <div className={`flex flex-col gap-1 ml-3 flex-shrink-0 transition-opacity duration-300 ${isSelectionMode ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                    <button 
+                    onClick={(e) => toggleFavorite(e, freq.id)}
+                    className={`p-1.5 rounded-full transition-colors ${isFav ? 'text-rose-400 bg-rose-400/10' : 'text-slate-600 hover:text-slate-400'}`}
+                    disabled={isSelectionMode}
+                    >
+                        <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-current' : ''}`} />
+                    </button>
+                    <button 
+                    onClick={(e) => handleDownload(e, freq)}
+                    className={`p-1.5 rounded-full transition-colors ${downloading ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 hover:text-cyan-400'}`}
+                    title="Baixar Áudio"
+                    disabled={isSelectionMode}
+                    >
+                        {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                    </button>
+                    
+                    <button 
+                        onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setSingleDeleteId(freq.id); 
+                            setShowDeleteConfirm(true); 
+                        }}
+                        className="p-1.5 rounded-full text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition-colors"
+                        title={selectedCategory === 'RECENTES' ? "Remover do Histórico" : "Apagar Frequência"}
+                    >
+                        {selectedCategory === 'RECENTES' ? <X className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    </button>
+                </div>
+            </div>
+          </div>
+      );
+  }
 };
+
+const HeadphonesIcon = ({className}:{className?:string}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+);
+
+const Radio = ({className}:{className?:string}) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
+    <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
+    <circle cx="12" cy="12" r="2" />
+    <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
+    <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19" />
+  </svg>
+)
 
 export default App;
