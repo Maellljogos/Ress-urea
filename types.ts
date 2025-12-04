@@ -1,9 +1,17 @@
+
 export interface Frequency {
   id: string;
   hz: number;
   name: string;
   description: string;
   category: FrequencyCategory;
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  createdAt: number;
+  items: string[]; // Array of frequency IDs
 }
 
 export enum FrequencyCategory {

@@ -4,7 +4,7 @@ export const GUARDIAN_FREQUENCY: Frequency = {
   id: 'guardian_shield_432',
   hz: 432,
   name: 'Escudo de Proteção Absoluta',
-  description: 'Frequência base contínua. Bloqueia negatividade, remove tensão e promove equilíbrio universal e segurança total.',
+  description: 'Frequência base contínua com sensação ASMR vibracional. Bloqueia negatividade, remove tensão e promove equilíbrio universal e paz profunda.',
   category: FrequencyCategory.SOLFEGGIO,
 };
 
@@ -31,18 +31,6 @@ export const REACTOR_MODES = [
     name: 'Fonte Primordial', 
     hz: 40, 
     description: 'Frequência Gamma (40Hz). Despertar total e fusão.' 
-  },
-  { 
-    id: 'sleep_core', 
-    name: 'Hibernação', 
-    hz: 0.5, 
-    description: 'Frequência Delta (0.5Hz). Sono profundo e regenerativo.' 
-  },
-  { 
-    id: 'lucid_core', 
-    name: 'Sonhos Lúcidos', 
-    hz: 5.5, 
-    description: 'Frequência Theta (5.5Hz). Consciência no sonho.' 
   }
 ];
 
@@ -261,7 +249,7 @@ export const PRESET_FREQUENCIES: Frequency[] = [
   {
     id: 'arch_courage_320',
     hz: 320,
-    name: 'Arquétipo: Coragem do Guerreiro',
+    name: 'Arquétipo: O Herói (Guerreiro)',
     description: 'Ativação do Plexo Solar. Elimina a covardia, traz bravura e força de vontade inabalável.',
     category: FrequencyCategory.ARCHETYPE,
   },

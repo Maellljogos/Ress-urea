@@ -19,6 +19,7 @@ class AudioEngine {
   private readonly SUBLIMINAL_GAIN = 0.0001;
   private readonly AUDIBLE_GAIN = 0.1; 
   private isScalarMode: boolean = false;
+  private currentTargetGain: number = 0.1; // Tracks what the gain SHOULD be when playing
 
   public isGlobalPlaying: boolean = false;
 
@@ -43,8 +44,10 @@ class AudioEngine {
       
       // Master Gain
       this.masterGain = this.audioContext.createGain();
-      this.masterGain.gain.value = this.SUBLIMINAL_GAIN;
-      
+      // Start at 0 for fade-in
+      this.masterGain.gain.value = 0;
+      this.currentTargetGain = this.SUBLIMINAL_GAIN; // Default start
+
       // Analyser
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 256;
@@ -89,18 +92,40 @@ class AudioEngine {
 
   public async resumeGlobal() {
     if (this.backgroundAudio) this.backgroundAudio.play();
-    if (this.audioContext && this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
+    if (this.audioContext) {
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
+      // Smooth Fade In
+      if (this.masterGain) {
+          const now = this.audioContext.currentTime;
+          this.masterGain.gain.cancelScheduledValues(now);
+          this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
+          this.masterGain.gain.linearRampToValueAtTime(this.currentTargetGain, now + 1.5); // 1.5s fade in
+      }
     }
     this.notifyStateChange(true);
   }
 
-  public pauseGlobal() {
-    if (this.backgroundAudio) this.backgroundAudio.pause();
-    if (this.audioContext) {
-      this.audioContext.suspend();
+  public async pauseGlobal() {
+    if (this.audioContext && this.masterGain) {
+        // Smooth Fade Out
+        const now = this.audioContext.currentTime;
+        this.masterGain.gain.cancelScheduledValues(now);
+        this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
+        // Ramp to 0 over 0.8 seconds
+        this.masterGain.gain.linearRampToValueAtTime(0, now + 0.8);
+        
+        // Wait for fade to finish before suspending
+        setTimeout(() => {
+            if (this.backgroundAudio) this.backgroundAudio.pause();
+            if (this.audioContext) this.audioContext.suspend();
+            this.notifyStateChange(false);
+        }, 850);
+    } else {
+        if (this.backgroundAudio) this.backgroundAudio.pause();
+        this.notifyStateChange(false);
     }
-    this.notifyStateChange(false);
   }
 
   public enableScalarMode(enabled: boolean) {
@@ -131,13 +156,14 @@ class AudioEngine {
       this.init();
     }
 
+    // If context was suspended (and we are adding a new frequency), we should wake it up
+    // But respecting the global play state. If global is paused, we just add it to active list?
+    // For now, assume adding a frequency implies desire to play.
     if (this.audioContext?.state === 'suspended') {
-      this.audioContext.resume();
-      this.backgroundAudio?.play();
-      this.notifyStateChange(true);
+      this.resumeGlobal();
     }
 
-    // If already playing, do nothing or update hz? Let's just return to avoid duplicates.
+    // If already playing, do nothing.
     if (this.activeOscillators.has(id)) return; 
 
     const ctx = this.audioContext!;
@@ -212,7 +238,7 @@ class AudioEngine {
   public stopFrequency(id: string) {
     const active = this.activeOscillators.get(id);
     if (active && this.audioContext) {
-      // Fade out
+      // Fade out individual frequency
       active.gain.gain.cancelScheduledValues(this.audioContext.currentTime);
       active.gain.gain.setValueAtTime(active.gain.gain.value, this.audioContext.currentTime);
       active.gain.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.5);
@@ -232,14 +258,31 @@ class AudioEngine {
     }
   }
 
-  public stopAll() {
-    this.activeOscillators.forEach((_, id) => this.stopFrequency(id));
+  public async stopAll() {
+    // Fade out master
+    await this.pauseGlobal(); 
+    // Then kill oscillators
+    this.activeOscillators.forEach((_, id) => {
+        // We can just stop them since master is muted
+        const active = this.activeOscillators.get(id);
+        if (active) {
+            active.oscillator.stop();
+            active.oscillator.disconnect();
+            active.gain.disconnect();
+        }
+    });
+    this.activeOscillators.clear();
+    // Reset gain for next play? No, resumeGlobal handles fade in.
   }
 
   public setSubliminalMode(isSubliminal: boolean) {
     if (!this.masterGain || !this.audioContext) return;
-    const targetGain = isSubliminal ? this.SUBLIMINAL_GAIN : this.AUDIBLE_GAIN;
-    this.masterGain.gain.setTargetAtTime(targetGain, this.audioContext.currentTime, 0.5);
+    this.currentTargetGain = isSubliminal ? this.SUBLIMINAL_GAIN : this.AUDIBLE_GAIN;
+    
+    // Apply immediate if currently playing
+    if (this.audioContext.state === 'running') {
+        this.masterGain.gain.setTargetAtTime(this.currentTargetGain, this.audioContext.currentTime, 0.5);
+    }
   }
 
   public getAnalyser(): AnalyserNode | null {
@@ -251,37 +294,30 @@ class AudioEngine {
   }
 
   // --- DOWNLOAD FEATURE ---
-  // Added 'mode' parameter to support choosing download location
   public async exportFrequencyToFile(hz: number, filename: string, mode: 'auto' | 'ask' = 'auto') {
-    // Generate a 5-minute audio buffer
-    const durationSeconds = 300; // 5 minutes
+    const durationSeconds = 300; 
     const sampleRate = 44100;
     
-    // Create Offline Context
     const offlineCtx = new OfflineAudioContext(2, sampleRate * durationSeconds, sampleRate);
     
-    // Create Oscillator
     const osc = offlineCtx.createOscillator();
     osc.type = 'sine';
     osc.frequency.value = hz;
     
     const gain = offlineCtx.createGain();
-    gain.gain.value = 0.5; // Moderate volume for the file
+    gain.gain.value = 0.5; 
     
     osc.connect(gain);
     gain.connect(offlineCtx.destination);
     
     osc.start();
     
-    // Render
     const buffer = await offlineCtx.startRendering();
     
-    // Convert to WAV
     const wavData = this.bufferToWave(buffer, buffer.length);
     const blob = new Blob([wavData], { type: 'audio/wav' });
     const cleanFilename = `${filename.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${hz}hz.wav`;
 
-    // MODE: ASK (Save As)
     if (mode === 'ask' && 'showSaveFilePicker' in window) {
       try {
         const handle = await (window as any).showSaveFilePicker({
@@ -294,15 +330,13 @@ class AudioEngine {
         const writable = await handle.createWritable();
         await writable.write(blob);
         await writable.close();
-        return; // Success, skip auto download
+        return; 
       } catch (err) {
-        // User cancelled or API not supported, fallback to auto
         console.log("Save Picker cancelled or failed, falling back to auto.");
         if ((err as Error).name === 'AbortError') return;
       }
     }
     
-    // MODE: AUTO (Default / Fallback)
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     document.body.appendChild(anchor);
@@ -314,7 +348,6 @@ class AudioEngine {
     document.body.removeChild(anchor);
   }
 
-  // Helper to write WAV headers
   private bufferToWave(abuffer: AudioBuffer, len: number) {
     const numOfChan = abuffer.numberOfChannels;
     const length = len * numOfChan * 2 + 44;
@@ -326,39 +359,35 @@ class AudioEngine {
     let offset = 0;
     let pos = 0;
   
-    // write WAVE header
-    setUint32(0x46464952); // "RIFF"
-    setUint32(length - 8); // file length - 8
-    setUint32(0x45564157); // "WAVE"
+    setUint32(0x46464952); 
+    setUint32(length - 8); 
+    setUint32(0x45564157); 
   
-    setUint32(0x20746d66); // "fmt " chunk
-    setUint32(16); // length = 16
-    setUint16(1); // PCM (uncompressed)
+    setUint32(0x20746d66); 
+    setUint32(16); 
+    setUint16(1); 
     setUint16(numOfChan);
     setUint32(abuffer.sampleRate);
-    setUint32(abuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
-    setUint16(numOfChan * 2); // block-align
-    setUint16(16); // 16-bit (hardcoded in this example)
+    setUint32(abuffer.sampleRate * 2 * numOfChan); 
+    setUint16(numOfChan * 2); 
+    setUint16(16); 
   
-    setUint32(0x61746164); // "data" - chunk
-    setUint32(length - pos - 4); // chunk length
+    setUint32(0x61746164); 
+    setUint32(length - pos - 4); 
   
-    // write interleaved data
     for (i = 0; i < abuffer.numberOfChannels; i++)
       channels.push(abuffer.getChannelData(i));
   
     while (pos < length) {
       for (i = 0; i < numOfChan; i++) {
-        // interleave channels
-        sample = Math.max(-1, Math.min(1, channels[i][offset])); // clamp
-        sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0; // scale to 16-bit signed int
-        view.setInt16(pos, sample, true); // write 16-bit sample
+        sample = Math.max(-1, Math.min(1, channels[i][offset])); 
+        sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0; 
+        view.setInt16(pos, sample, true); 
         pos += 2;
       }
       offset++; 
     }
   
-    // Helper functions
     function setUint16(data: any) {
       view.setUint16(pos, data, true);
       pos += 2;
